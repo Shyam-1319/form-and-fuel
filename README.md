@@ -2,7 +2,7 @@
 
 A private home for meals, movement, and everyday health records. Built with React, TypeScript, Cloudflare **Pages + Pages Functions**, D1, Better Auth, optional Groq estimates, and per-user Intervals.icu imports.
 
-**Status:** implementation and verification in progress. See [verification](docs/verification.md) for observed results and remaining configuration. Deployment is not established by this README; the live health check must pass.
+**Status:** deployed on Pages with verified D1 health. Types, lint, 20 unit/integration tests, 4 browser workflows and an observed GitHub Actions run passed. **Private accounts remain blocked by missing production secrets.** Real email, Groq and wearable checks remain unverified. See [verification](docs/verification.md).
 
 Intended application: https://form-and-fuel-shyam.pages.dev · Isolated recruiter demo: https://form-and-fuel-shyam.pages.dev/demo
 

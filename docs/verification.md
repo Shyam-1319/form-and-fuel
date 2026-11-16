@@ -1,17 +1,18 @@
-# Verification record
+# Verification record — 2026-11-16
 
-Implementation date: 2026-11-16. This file will be updated with final observed results.
+- Node 24.22.1, npm 11.21.2, Git 2.42.0.windows.2 verified.
+- Type checking, lint and production build passed.
+- 20 unit/database integration tests passed; 4 browser workflows passed, including mobile layout, demo isolation, meal preview/cancel/save, measurements, workbook import, routes and dark mode.
+- Dependency audit reported zero vulnerabilities after patched transitive overrides.
+- All three local and production D1 migrations applied successfully.
+- Pages + Pages Functions deployment 5a22eb5d completed. Live /, /demo, /demo/workouts and /api/health passed. Health returned HTTP 200 with status ok and database true.
+- Initial immediate hostname request returned 522; subsequent complete live verification passed after propagation.
+- Public source pushed to https://github.com/Shyam-1319/form-and-fuel.
+- GitHub Actions Validate run 43894511034 completed SUCCESS: https://github.com/Shyam-1319/form-and-fuel/actions/runs/43894511034.
+- The last production secret-name inspection returned an empty list. Live private API returned HTTP 503: authentication is not configured. Secret values were never read.
+- Real verification/reset email delivery, Groq inference and personal Intervals imports remain UNVERIFIED. No real wearable metrics or source date ranges were observed.
+- Resend development sender is configured; public multi-user signup still needs a verified domain owned by the operator.
+- Source review excluded secrets, databases, private data and logs. Screenshots and sample workbooks are synthetic. No ZIP deliverable.
+- Lazy ExcelJS chunk is about 929 kB minified / 256 kB gzip, producing a build size warning. This is not a performance benchmark.
 
-Observed so far:
-- Windows 10.0.26200, Node 24.22.1, npm 11.21.2, Git 2.42.0.windows.2.
-- Cloudflare Wrangler 4.162.0 authenticated to the single account selected by the user.
-- Pages project `form-and-fuel-shyam` and D1 database created. Initial remote/local migrations passed.
-- 20 unit/database integration tests passed before final provenance/streaming changes; rerun pending.
-- Type checking, lint and production build passed before final changes; rerun pending.
-- npm dependency audit: zero vulnerabilities after overrides.
-- Browser: 3 of 4 initial workflows passed; measurement fixture/order and assertion issues corrected, final rerun pending.
-- Local `/api/health`: HTTP 200 with `database: true` before latest additive migration.
-
-Not yet verified: final deployment, production secrets, real email delivery, Groq inference, per-user real Intervals imports, remote GitHub Actions run. No real wearable records or source date ranges are claimed.
-
-Build observation: lazy ExcelJS chunk approximately 929 kB minified / 256 kB gzip; Vite warns about its size. This is a bundle size observation, not a page-performance benchmark.
+See setup-secrets.md for required owner-driven configuration. After secrets are saved, redeploy and test real signup, reset, persistence and integrations. The full private application is not considered ready until these checks pass.
