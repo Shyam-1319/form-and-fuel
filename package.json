@@ -1,0 +1,60 @@
+{
+  "name": "form-and-fuel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:api": "wrangler pages dev dist --port 8788",
+    "preview": "wrangler pages dev dist --port 8788",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote",
+    "setup:cloudflare": "node scripts/cloudflare-setup.mjs",
+    "setup:local": "node scripts/local-setup.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "verify:live": "node scripts/verify-live.mjs",
+    "fixtures": "node scripts/fixtures.mjs"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.25",
+    "drizzle-orm": "^0.45.4",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^1.73.0",
+    "papaparse": "^5.7.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "eslint": "^10.15.0",
+    "miniflare": "^5.20261113.0-beta",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "minimatch": "^11.0.1"
+  }
+}

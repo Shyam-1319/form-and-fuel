@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "form-and-fuel-shyam",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "form-and-fuel-shyam-db",
+      "database_id": "57424a6b-b745-469e-9f28-1a43b26d5bd8",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "APP_URL": "https://form-and-fuel-shyam.pages.dev",
+    "AI_ENABLED": "false",
+    "GROQ_MODEL": "qwen/qwen3.8-27b",
+    "EMAIL_FROM": "Form & Fuel <onboarding@resend.dev>"
+  }
+}
