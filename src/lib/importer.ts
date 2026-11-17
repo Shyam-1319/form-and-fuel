@@ -21,9 +21,16 @@ export const columns = [
 export type Mapping = {
   header: number;
   columns: Partial<Record<(typeof columns)[number], number>>;
+  weekSectionColumn?: number;
 };
-function cell(value: unknown): string {
+function cell(value: unknown, numberFormat?: string): string {
   if (value == null) return "";
+  if (value instanceof Date) {
+    // Preserve the worksheet's explicit display format, often used for rep ranges.
+    if (numberFormat === "m-d")
+      return `${value.getUTCMonth() + 1}-${value.getUTCDate()}`;
+    return value.toISOString().slice(0, 10);
+  }
   if (typeof value === "object") {
     if ("formula" in value)
       return `[Formula retained, not evaluated: ${String(value.formula)}]`;
@@ -66,6 +73,7 @@ export async function readWorkbook(file: File): Promise<Workbook> {
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(bytes);
+    let hasDates = false;
     sheets = workbook.worksheets.map((ws) => {
       const rows: string[][] = [];
       ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
@@ -73,7 +81,8 @@ export async function readWorkbook(file: File): Promise<Workbook> {
         row.eachCell({ includeEmpty: false }, (c, n) => {
           // A merged heading is retained once, with its range in merged metadata.
           if (c.isMerged && c.master.address !== c.address) return;
-          const text = cell(c.value);
+          if (c.value instanceof Date && c.numFmt !== "m-d") hasDates = true;
+          const text = cell(c.value, c.numFmt);
           if (text.trim()) cells[n - 1] = text;
         });
         // Preserve original row/column positions, but ignore formatting-only tails.
@@ -85,6 +94,10 @@ export async function readWorkbook(file: File): Promise<Workbook> {
         merged: (ws.model.merges || []).map(String),
       };
     });
+    if (hasDates)
+      warnings.push(
+        "Some cells contain Excel dates, retained as YYYY-MM-DD. Check any date-looking sets or reps against the original plan; intended ranges are not guessed.",
+      );
   } else
     throw new Error(
       "Choose an .xlsx or .csv file. Macro-enabled files are not supported.",
@@ -136,8 +149,8 @@ const aliases: Record<string, string[]> = {
   name: ["exercise", "movement", "name"],
   week: ["week"],
   day: ["day", "session"],
-  sets: ["sets"],
-  reps: ["reps", "repetitions"],
+  sets: ["sets", "working sets"],
+  reps: ["reps", "repetitions", "rep range"],
   load: ["load", "weight"],
   duration: ["duration", "time"],
   distance: ["distance"],
@@ -146,7 +159,7 @@ const aliases: Record<string, string[]> = {
   effort: ["rpe", "rir", "effort"],
   group: ["superset", "circuit", "group"],
   instructions: ["instructions", "notes"],
-  alternatives: ["alternatives", "alternative"],
+  alternatives: ["alternatives", "alternative", "substitution option 1"],
 };
 export function suggestMapping(sheet: Sheet): Mapping {
   let header = sheet.rows.findIndex((row) =>
@@ -159,6 +172,17 @@ export function suggestMapping(sheet: Sheet): Mapping {
       aliases[column].includes(c.trim().toLowerCase()),
     );
     if (i >= 0) mapping.columns[column] = i;
+  }
+  const weekSectionColumn = (sheet.rows[header] || []).findIndex((c) =>
+    /^week\s+\d+(?:\s*[-–]\s*\d+)?$/i.test(c.trim()),
+  );
+  if (
+    mapping.columns.name !== undefined &&
+    weekSectionColumn >= 0 &&
+    mapping.columns.week === undefined
+  ) {
+    mapping.weekSectionColumn = weekSectionColumn;
+    mapping.columns.day ??= weekSectionColumn;
   }
   return mapping;
 }
@@ -180,6 +204,22 @@ export function mapWorkbook(
     sheet.rows.forEach((row, rowIndex) => {
       if (!row.some(Boolean)) return;
       sourceNotes.push(`${sheet.name} row ${rowIndex + 1}: ${row.join(" | ")}`);
+      const nameColumn = map.columns.name;
+      const isHeader =
+        nameColumn !== undefined &&
+        aliases.name.includes((row[nameColumn] || "").trim().toLowerCase());
+      if (isHeader) {
+        if (map.weekSectionColumn !== undefined) {
+          const section = (row[map.weekSectionColumn] || "")
+            .trim()
+            .match(/^week\s+(\d+(?:\s*[-–]\s*\d+)?)$/i);
+          if (section) {
+            week = section[1];
+            day = sheet.name;
+          }
+        }
+        return;
+      }
       if (rowIndex <= map.header) return;
       const field = (key: (typeof columns)[number]) =>
         map.columns[key] === undefined

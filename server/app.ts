@@ -123,7 +123,16 @@ export async function handlePrivate(
     });
   }
   if (path === "/api/records" && method === "POST") {
-    const input = writeSchema.parse(await readJson(request));
+    const input = writeSchema.parse(
+      await readJson(request, 1000000, (value) =>
+        value !== null &&
+        typeof value === "object" &&
+        "kind" in value &&
+        value.kind === "plan"
+          ? 1000000
+          : 150000,
+      ),
+    );
     const data = editableSchemas[input.kind].parse(input.data);
     if (input.kind === "session") await validateActivity(env, user.id, data);
     const now = new Date().toISOString();
@@ -167,7 +176,9 @@ export async function handlePrivate(
     if (method === "PUT") {
       const input = z
         .object({ date: daySchema, data: z.unknown(), updatedAt: z.string() })
-        .parse(await readJson(request));
+        .parse(
+          await readJson(request, entry.kind === "plan" ? 1000000 : 150000),
+        );
       const data = editableSchemas[entry.kind as EditableKind].parse(
         input.data,
       );

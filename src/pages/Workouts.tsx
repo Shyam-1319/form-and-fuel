@@ -904,6 +904,13 @@ function Importer({
                 {sheet.rows.length} rows · {sheet.merged.length} merged
                 heading(s)
               </p>
+              {maps[index].weekSectionColumn !== undefined && (
+                <p className="muted">
+                  Week sections detected. Repeated headings are kept as source
+                  notes; workouts are grouped by week and day. Review these
+                  groups in the preview.
+                </p>
+              )}
               <Field label="Header row (1-based)">
                 <input
                   type="number"

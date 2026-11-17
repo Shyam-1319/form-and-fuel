@@ -15,6 +15,7 @@ import { analyze } from "../server/ai";
 import { connect, sync, status } from "../server/intervals";
 import { quota } from "../server/db";
 import { HttpError, type Env } from "../server/types";
+import { readWorkbook, suggestMapping, mapWorkbook } from "../src/lib/importer";
 let mf: Miniflare, env: Env;
 const alice = { id: "alice", name: "Alice", email: "alice@example.test" },
   bob = { id: "bob", name: "Bob", email: "bob@example.test" };
@@ -108,6 +109,109 @@ beforeEach(async () => {
       .run();
 });
 afterEach(() => vi.unstubAllGlobals());
+it("saves and edits larger workbook plans while retaining request limits", async () => {
+  const plan = {
+    title: "Synthetic multiweek plan",
+    notes: "",
+    warnings: [],
+    days: [{ week: "1", day: "A", notes: "", exercises: [] }],
+    sourceNotes: Array.from(
+      { length: 200 },
+      (_, i) => `${i}: ${"Synthetic source note. ".repeat(50)}`,
+    ),
+  };
+  const created = await handlePrivate(
+    request("/api/records", "POST", {
+      kind: "plan",
+      date: "2026-11-01",
+      data: plan,
+      requestId: crypto.randomUUID(),
+    }),
+    env,
+    alice,
+  );
+  expect(created.status).toBe(201);
+  const entry = (await created.json()) as {
+    id: string;
+    updatedAt: string;
+    data: unknown;
+  };
+  expect(entry.data).toEqual(plan);
+  const updated = await handlePrivate(
+    request(`/api/records/${entry.id}`, "PUT", {
+      date: "2026-11-01",
+      data: plan,
+      updatedAt: entry.updatedAt,
+    }),
+    env,
+    alice,
+  );
+  expect(updated.status).toBe(200);
+  expect(((await updated.json()) as { data: unknown }).data).toEqual(plan);
+  await expect(
+    handlePrivate(
+      request("/api/records", "POST", {
+        kind: "meal",
+        date: "2026-11-01",
+        data: { ...meal, notes: "x".repeat(150001) },
+        requestId: crypto.randomUUID(),
+      }),
+      env,
+      alice,
+    ),
+  ).rejects.toMatchObject({ status: 413 });
+  await expect(
+    handlePrivate(
+      request("/api/records", "POST", {
+        kind: "plan",
+        date: "2026-11-01",
+        data: { ...plan, notes: "x".repeat(1000001) },
+        requestId: crypto.randomUUID(),
+      }),
+      env,
+      alice,
+    ),
+  ).rejects.toMatchObject({ status: 413 });
+});
+it.skipIf(!process.env.LOCAL_IMPORT_WORKBOOK)(
+  "imports an optional private local workbook through persistence",
+  async () => {
+    const bytes = await readFile(process.env.LOCAL_IMPORT_WORKBOOK!);
+    const book = await readWorkbook(new File([bytes], "local-workbook.xlsx"));
+    const plan = mapWorkbook(
+      book,
+      book.sheets.map(suggestMapping),
+      "Local import test",
+    );
+    const created = await handlePrivate(
+      request("/api/records", "POST", {
+        kind: "plan",
+        date: "2026-11-01",
+        data: plan,
+        requestId: crypto.randomUUID(),
+      }),
+      env,
+      alice,
+    );
+    expect(created.status).toBe(201);
+    const entry = (await created.json()) as {
+      id: string;
+      updatedAt: string;
+      data: unknown;
+    };
+    expect(entry.data).toEqual(plan);
+    const updated = await handlePrivate(
+      request(`/api/records/${entry.id}`, "PUT", {
+        date: "2026-11-01",
+        data: plan,
+        updatedAt: entry.updatedAt,
+      }),
+      env,
+      alice,
+    );
+    expect(updated.status).toBe(200);
+  },
+);
 it("health checks the actual schema and denies anonymous private access", async () => {
   expect(
     await (await handleRequest(request("/api/health"), env)).json(),

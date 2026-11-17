@@ -27,7 +27,11 @@ export const json = (data: unknown, status = 200) =>
       "X-Content-Type-Options": "nosniff",
     },
   });
-export async function readJson(request: Request, max = 150000) {
+export async function readJson(
+  request: Request,
+  max = 150000,
+  maxForValue?: (value: unknown) => number,
+) {
   if (Number(request.headers.get("content-length") || 0) > max)
     throw new HttpError(413, "Request too large");
   const reader = request.body?.getReader();
@@ -46,9 +50,13 @@ export async function readJson(request: Request, max = 150000) {
     body += decoder.decode(chunk.value, { stream: true });
   }
   body += decoder.decode();
+  let value: unknown;
   try {
-    return JSON.parse(body) as unknown;
+    value = JSON.parse(body) as unknown;
   } catch {
     throw new HttpError(400, "Invalid JSON");
   }
+  if (maxForValue && bytes > maxForValue(value))
+    throw new HttpError(413, "Request too large");
+  return value;
 }
