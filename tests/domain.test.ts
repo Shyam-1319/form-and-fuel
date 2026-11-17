@@ -147,6 +147,57 @@ describe("wearable normalization", () => {
   });
 });
 describe("reviewed workbook import", () => {
+  it("ignores formatting-only tails while preserving source row numbers and merged notes", async () => {
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Training");
+    sheet.getCell("A1").value = "Warm up first";
+    sheet.mergeCells("A1:AZ1");
+    sheet.getCell("A3").value = "Exercise";
+    sheet.getCell("B3").value = "Reps";
+    sheet.getCell("A4").value = "Squat";
+    sheet.getCell("B4").value = "8–12";
+    sheet.getCell("AX4").font = { bold: true };
+    sheet.getCell("A2000").font = { bold: true };
+    const bytes = await workbook.xlsx.writeBuffer();
+    const book = await readWorkbook(
+      new File([new Uint8Array(bytes)], "formatted.xlsx"),
+    );
+    expect(book.sheets[0].rows).toEqual([
+      ["Warm up first"],
+      [],
+      ["Exercise", "Reps"],
+      ["Squat", "8–12"],
+    ]);
+    expect(book.sheets[0].merged).toContain("A1:AZ1");
+    const plan = mapWorkbook(book, book.sheets.map(suggestMapping), "Training");
+    expect(plan.days[0].exercises[0].reps).toBe("8–12");
+    expect(plan.sourceNotes.join("\n")).toContain(
+      "Training row 4: Squat | 8–12",
+    );
+  });
+  it("ignores empty CSV tails without dropping content or moving columns", async () => {
+    const book = await readWorkbook(
+      new File(["Exercise,,Reps,,,\nSquat,,8,,,\n,,,,,\n"], "plan.csv"),
+    );
+    expect(book.sheets[0].rows).toEqual([
+      ["Exercise", "", "Reps"],
+      ["Squat", "", "8"],
+    ]);
+  });
+  it("reports the actual content limit instead of silently truncating", async () => {
+    await expect(
+      readWorkbook(new File(["x".repeat(3501)], "notes.csv")),
+    ).rejects.toThrow("row 1 exceeds 3,500 characters");
+    await expect(
+      readWorkbook(new File([",".repeat(40) + "Exercise"], "wide.csv")),
+    ).rejects.toThrow("content in column 41");
+    await expect(
+      readWorkbook(
+        new File([Array(1001).fill("Exercise").join("\n")], "long.csv"),
+      ),
+    ).rejects.toThrow("1,001 rows");
+  });
   it("preserves expressions, sections and notes outside tables", () => {
     const book = {
       sheets: [

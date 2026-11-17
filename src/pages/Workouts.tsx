@@ -856,7 +856,8 @@ function Importer({
     <Modal title="Import a workout spreadsheet" onClose={onClose}>
       <p className="muted">
         Excel .xlsx or CSV · max 2 MB. All sheets and source notes are retained
-        for review. Formulas are never executed.
+        for review. Empty trailing rows and columns are ignored. Formulas are
+        never executed.
       </p>
       <a className="text-button" href="/samples/strength-plan.xlsx" download>
         Download synthetic sample workbook
@@ -869,6 +870,8 @@ function Importer({
             const file = e.target.files?.[0];
             if (!file) return;
             setError("");
+            setBook(null);
+            setMaps([]);
             setLoading(true);
             try {
               const result = await readWorkbook(file);

@@ -68,16 +68,20 @@ export async function readWorkbook(file: File): Promise<Workbook> {
     await workbook.xlsx.load(bytes);
     sheets = workbook.worksheets.map((ws) => {
       const rows: string[][] = [];
-      ws.eachRow({ includeEmpty: true }, (row) => {
+      ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
         const cells: string[] = [];
-        row.eachCell({ includeEmpty: true }, (c, n) => {
-          cells[n - 1] = cell(c.value);
+        row.eachCell({ includeEmpty: false }, (c, n) => {
+          // A merged heading is retained once, with its range in merged metadata.
+          if (c.isMerged && c.master.address !== c.address) return;
+          const text = cell(c.value);
+          if (text.trim()) cells[n - 1] = text;
         });
-        rows.push(cells);
+        // Preserve original row/column positions, but ignore formatting-only tails.
+        if (cells.length) rows[rowNumber - 1] = cells;
       });
       return {
         name: ws.name,
-        rows,
+        rows: Array.from({ length: rows.length }, (_, i) => rows[i] || []),
         merged: (ws.model.merges || []).map(String),
       };
     });
@@ -85,16 +89,36 @@ export async function readWorkbook(file: File): Promise<Workbook> {
     throw new Error(
       "Choose an .xlsx or .csv file. Macro-enabled files are not supported.",
     );
-  if (
-    sheets.length > 20 ||
-    sheets.reduce((n, s) => n + s.rows.length, 0) > 1000 ||
-    sheets.some((s) =>
-      s.rows.some((r) => r.length > 40 || r.join(" | ").length > 3500),
-    )
-  )
+  for (const sheet of sheets) {
+    sheet.rows = sheet.rows.map((row) => {
+      let end = row.length;
+      while (end > 0 && !(row[end - 1] || "").trim()) end--;
+      return Array.from({ length: end }, (_, i) => row[i] || "");
+    });
+    while (sheet.rows.length && !sheet.rows[sheet.rows.length - 1].length)
+      sheet.rows.pop();
+  }
+  if (sheets.length > 20)
     throw new Error(
-      "Use at most 20 sheets, 1,000 rows, and 40 columns. Split larger files before importing.",
+      `This workbook has ${sheets.length} sheets; the limit is 20. Split it into smaller files.`,
     );
+  const rowCount = sheets.reduce((n, s) => n + s.rows.length, 0);
+  if (rowCount > 1000)
+    throw new Error(
+      `This workbook uses ${rowCount.toLocaleString("en-US")} rows across all sheets; the limit is 1,000. Blank rows between content are included. Split it into smaller files.`,
+    );
+  for (const sheet of sheets) {
+    sheet.rows.forEach((row, i) => {
+      if (row.length > 40)
+        throw new Error(
+          `Sheet "${sheet.name}", row ${i + 1} contains content in column ${row.length}; the limit is 40 columns. Move that content into the first 40 columns or split the sheet.`,
+        );
+      if (row.join(" | ").length > 3500)
+        throw new Error(
+          `Sheet "${sheet.name}", row ${i + 1} exceeds 3,500 characters. Split long notes across rows.`,
+        );
+    });
+  }
   if (
     sheets.some((s) =>
       s.rows.some((r) => r.some((c) => c.startsWith("[Formula"))),
