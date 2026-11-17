@@ -13,6 +13,10 @@ for (const path of ["/", "/demo", "/demo/workouts", "/api/health"]) {
   console.log(`${path}: passed`);
 }
 const privateResponse = await fetch(base + "/api/records");
-if (![401, 503].includes(privateResponse.status))
-  throw new Error("Unauthenticated private access unexpected");
+if (privateResponse.status !== 401)
+  throw new Error(`Private records must reject anonymous access with HTTP 401, got ${privateResponse.status}`);
 console.log(`Private records without session: HTTP ${privateResponse.status}`);
+const sessionResponse = await fetch(base + "/api/auth/get-session");
+if (sessionResponse.status !== 200 || (await sessionResponse.json()) !== null)
+  throw new Error("Anonymous session check failed");
+console.log("Authentication configured; anonymous session is null: passed");

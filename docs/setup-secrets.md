@@ -2,6 +2,10 @@
 
 Never send secret values in chat, tickets or screenshots.
 
+For guided initial setup on Windows, run `node scripts/configure-production.mjs --dialog`. Paste the Resend key into the password field (dots confirm input), then click Upload. Without `--dialog`, the script uses hidden terminal input with no visual feedback. It generates missing auth/encryption secrets, preserves existing secrets, uploads directly over Wrangler stdin, and verifies secret names. It does not change PowerShell execution policy or save secret values locally. The ignored `.production-setup-result.json` contains status and names only.
+
+If a managed shell cannot show interactive windows, run `node scripts/configure-production.mjs --generated-only` to create and verify just the missing auth/encryption secrets. Then enter `RESEND_API_KEY` directly in the Cloudflare Production settings as a Secret. This avoids terminal key entry entirely.
+
 1. Cloudflare → Workers & Pages → `form-and-fuel-shyam` → Settings → Variables and Secrets → **Production**. Add and save `BETTER_AUTH_SECRET`, `INTEGRATION_ENCRYPTION_KEY` and `RESEND_API_KEY` as secrets. A pending unsaved edit or Preview-only setting will not appear in production `wrangler pages secret list`.
 2. Generate a high-entropy auth secret and a base64 32-byte encryption key locally, then store them in your password manager and the secret fields. Do not reuse the repository's ignored local development values for production.
 3. In Resend, create an email-sending API key. For development, `onboarding@resend.dev` sends only to the Resend account owner's address. For real multi-user signup, verify a domain you control and use a sender on that domain. Change the tracked non-secret `EMAIL_FROM` and redeploy.
