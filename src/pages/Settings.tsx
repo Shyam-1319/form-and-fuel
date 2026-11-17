@@ -59,7 +59,7 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
               </Field>
               <Field
                 label="Timezone"
-                hint="Dates use this IANA timezone. Existing diary calendar dates stay as recorded."
+                hint="For India, choose Asia/Kolkata (IST, UTC+05:30). Existing diary dates stay as recorded."
               >
                 <input
                   list="timezones"
@@ -69,9 +69,16 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
                   }
                 />
                 <datalist id="timezones">
-                  {Intl.supportedValuesOf("timeZone").map((t) => (
-                    <option key={t} value={t} />
-                  ))}
+                  <option
+                    value="Asia/Kolkata"
+                    label="India — IST (UTC+05:30)"
+                  />
+                  <option value="UTC" label="Coordinated Universal Time" />
+                  {Intl.supportedValuesOf("timeZone")
+                    .filter((t) => t !== "Asia/Kolkata" && t !== "UTC")
+                    .map((t) => (
+                      <option key={t} value={t} />
+                    ))}
                 </datalist>
               </Field>
               <Field label="Units">
