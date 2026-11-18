@@ -12,6 +12,7 @@ import {
   sessionSchema,
   mealSchema,
   planSchema,
+  safeVideoUrl,
 } from "../src/lib/domain";
 import { normalizeWellness, normalizeActivity } from "../server/intervals";
 import { encrypt, decrypt } from "../server/crypto";
@@ -148,13 +149,26 @@ describe("wearable normalization", () => {
   });
 });
 describe("reviewed workbook import", () => {
+  it("rejects executable or credential-bearing demonstration links", () => {
+    expect(safeVideoUrl("javascript:alert(1)")).toBe("");
+    expect(safeVideoUrl("data:text/html,test")).toBe("");
+    expect(safeVideoUrl("https://user:password@example.test/demo")).toBe("");
+    expect(safeVideoUrl("https://youtu.be/example")).toBe(
+      "https://youtu.be/example",
+    );
+  });
   it("groups repeated week sections and merged day labels without importing headers as exercises", async () => {
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Training");
     sheet.addRows([
       ["Week 1", "Exercise", "Working Sets", "Rep Range"],
-      ["Day A", "Movement A", 2, new Date("2025-06-08T00:00:00Z")],
+      [
+        "Day A",
+        { text: "Movement A", hyperlink: "https://example.test/demo" },
+        2,
+        new Date("2025-06-08T00:00:00Z"),
+      ],
       [null, "Movement B", 1, "AMRAP"],
       ["Rest Day"],
       ["Day B", "Movement C", 2, "10-12"],
@@ -176,7 +190,11 @@ describe("reviewed workbook import", () => {
       ["2", "Day A", 1],
       ["2", "Day B", 1],
     ]);
-    expect(plan.days[0].exercises[0]).toMatchObject({ sets: "2", reps: "6-8" });
+    expect(plan.days[0].exercises[0]).toMatchObject({
+      sets: "2",
+      reps: "6-8",
+      videoUrl: "https://example.test/demo",
+    });
     expect(plan.days[0].exercises[1].reps).toBe("AMRAP");
     expect(plan.sourceNotes.join("\n")).toContain("Week 2 | Exercise");
     expect(plan.sourceNotes.join("\n")).toContain("Rest Day");

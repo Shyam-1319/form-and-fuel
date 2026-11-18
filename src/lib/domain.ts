@@ -72,6 +72,14 @@ export const measurementSchema = z
   );
 export const exerciseSchema = z.object({
   name: z.string().min(1).max(160),
+  videoUrl: z
+    .string()
+    .max(2048)
+    .refine(
+      (value) => !value || safeVideoUrl(value) !== "",
+      "Use an http or https demonstration link",
+    )
+    .default(""),
   mode: z
     .enum(["strength", "bodyweight", "cardio", "other"])
     .default("strength"),
@@ -87,6 +95,19 @@ export const exerciseSchema = z.object({
   instructions: text.default(""),
   alternatives: text.default(""),
 });
+export function safeVideoUrl(value: string | undefined): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+      ? url.href
+      : "";
+  } catch {
+    return "";
+  }
+}
 export const planSchema = z.object({
   title: z.string().min(1).max(160),
   notes: text.default(""),

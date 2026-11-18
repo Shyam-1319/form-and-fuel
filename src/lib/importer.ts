@@ -1,6 +1,11 @@
 import type { Plan } from "./domain";
-import { emptyExercise } from "./domain";
-export type Sheet = { name: string; rows: string[][]; merged: string[] };
+import { emptyExercise, safeVideoUrl } from "./domain";
+export type Sheet = {
+  name: string;
+  rows: string[][];
+  merged: string[];
+  links?: Record<string, string>;
+};
 export type Workbook = { sheets: Sheet[]; warnings: string[] };
 export const columns = [
   "name",
@@ -17,6 +22,7 @@ export const columns = [
   "group",
   "instructions",
   "alternatives",
+  "videoUrl",
 ] as const;
 export type Mapping = {
   header: number;
@@ -76,11 +82,14 @@ export async function readWorkbook(file: File): Promise<Workbook> {
     let hasDates = false;
     sheets = workbook.worksheets.map((ws) => {
       const rows: string[][] = [];
+      const links: Record<string, string> = {};
       ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
         const cells: string[] = [];
         row.eachCell({ includeEmpty: false }, (c, n) => {
           // A merged heading is retained once, with its range in merged metadata.
           if (c.isMerged && c.master.address !== c.address) return;
+          const link = safeVideoUrl(c.hyperlink);
+          if (link) links[`${rowNumber - 1}:${n - 1}`] = link;
           if (c.value instanceof Date && c.numFmt !== "m-d") hasDates = true;
           const text = cell(c.value, c.numFmt);
           if (text.trim()) cells[n - 1] = text;
@@ -90,6 +99,7 @@ export async function readWorkbook(file: File): Promise<Workbook> {
       });
       return {
         name: ws.name,
+        links,
         rows: Array.from({ length: rows.length }, (_, i) => rows[i] || []),
         merged: (ws.model.merges || []).map(String),
       };
@@ -160,6 +170,7 @@ const aliases: Record<string, string[]> = {
   group: ["superset", "circuit", "group"],
   instructions: ["instructions", "notes"],
   alternatives: ["alternatives", "alternative", "substitution option 1"],
+  videoUrl: ["video", "video url", "demonstration", "demo link"],
 };
 export function suggestMapping(sheet: Sheet): Mapping {
   let header = sheet.rows.findIndex((row) =>
@@ -246,6 +257,9 @@ export function mapWorkbook(
           if (value) exercise[key] = value;
         }
       }
+      exercise.videoUrl =
+        safeVideoUrl(exercise.videoUrl) ||
+        safeVideoUrl(sheet.links?.[`${rowIndex}:${map.columns.name}`]);
       target.exercises.push(exercise);
     });
   });

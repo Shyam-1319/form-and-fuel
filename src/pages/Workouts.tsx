@@ -1,14 +1,9 @@
 import { useState } from "react";
 import {
-  Plus,
-  Upload,
-  ArrowUp,
-  ArrowDown,
-  Copy,
-  Play,
-  Dumbbell,
-  Trash2,
-} from "lucide-react";
+  PlanWorkout,
+  WorkoutLogger as SessionEditor,
+} from "../components/WorkoutLogger";
+import { Plus, Upload, ArrowUp, ArrowDown, Copy, Trash2 } from "lucide-react";
 import { useData, useEntries } from "../lib/store";
 import {
   dayInZone,
@@ -106,9 +101,8 @@ export function Workouts() {
   return (
     <>
       <Heading
-        eyebrow="MOVE WITH INTENTION"
-        title="Make room for movement."
-        description="Plan your training. Record what actually happened."
+        eyebrow="TRAINING"
+        title="Workouts"
         action={
           <div className="split">
             <button
@@ -129,7 +123,7 @@ export function Workouts() {
             className={tab === "plans" ? "selected" : ""}
             onClick={() => setTab("plans")}
           >
-            Workout plans
+            Workout
           </button>
           <button
             className={tab === "sessions" ? "selected" : ""}
@@ -147,75 +141,27 @@ export function Workouts() {
       </div>
       {tab === "plans" ? (
         <>
-          <div className="two-column">
-            {plans.map((p) => (
-              <Card key={p.id}>
-                <span className="plan-icon">
-                  <Dumbbell size={24} />
-                </span>
-                <p className="eyebrow">
-                  {p.data.days.length} TRAINING DAY
-                  {p.data.days.length === 1 ? "" : "S"}
-                </p>
-                <h2>{p.data.title}</h2>
-                <p className="muted">{p.data.notes}</p>
-                {p.data.days.map((d, i) => (
-                  <div className="plan-day" key={i}>
-                    <div>
-                      <strong>
-                        Week {d.week} · {d.day}
-                      </strong>
-                      <p>{d.exercises.map((e) => e.name).join(" · ")}</p>
-                    </div>
-                    <button
-                      className="icon-button"
-                      aria-label={`Start ${d.day}`}
-                      onClick={() => start(p, i)}
-                    >
-                      <Play size={17} />
-                    </button>
-                  </div>
-                ))}
-                <div className="split">
-                  <button
-                    className="text-button"
-                    onClick={() =>
-                      setPlan({ id: p.id, data: structuredClone(p.data) })
-                    }
-                  >
-                    Edit plan
-                  </button>
-                  <Action
-                    className="text-button danger-text"
-                    onClick={async () => {
-                      if (
-                        confirm(
-                          "Delete this plan? Completed sessions keep their original snapshot.",
-                        )
-                      )
-                        await remove(p.id);
-                    }}
-                  >
-                    Delete
-                  </Action>
-                </div>
-                {p.data.sourceNotes.length > 0 && (
-                  <details>
-                    <summary>Source notes & import warnings</summary>
-                    <ul>
-                      {p.data.warnings.map((w, i) => (
-                        <li key={i}>{w}</li>
-                      ))}
-                    </ul>
-                    <pre className="source-notes">
-                      {p.data.sourceNotes.join("\n")}
-                    </pre>
-                  </details>
-                )}
-              </Card>
-            ))}
+          <div className="workout-plans">
+            <PlanWorkout
+              plans={plans}
+              onEdit={(p) =>
+                setPlan({ id: p.id, data: structuredClone(p.data) })
+              }
+              onDelete={remove}
+              onUpdatePlan={async (entry, data) => {
+                await save(
+                  "plan",
+                  entry.date,
+                  planSchema.parse(data),
+                  entry.id,
+                );
+              }}
+              onSave={async (date, data) => {
+                await save("session", date, sessionSchema.parse(data));
+              }}
+            />
             <button
-              className="new-plan"
+              className="button secondary"
               onClick={() =>
                 setPlan({
                   data: {
@@ -235,9 +181,7 @@ export function Workouts() {
                 })
               }
             >
-              <Plus size={26} />
-              <strong>Build your own plan</strong>
-              <span>Start with one day. Find your rhythm.</span>
+              <Plus size={17} /> New plan
             </button>
           </div>
           {hasMore("plan") && (
@@ -376,6 +320,7 @@ export function Workouts() {
         <SessionEditor
           initial={session.data}
           initialDate={session.date}
+          editingId={session.id}
           onClose={() => setSession(null)}
           onSave={async (date, data) => {
             await save("session", date, sessionSchema.parse(data), session.id);
@@ -541,11 +486,13 @@ function PlanEditor({
               <Field
                 key={key}
                 label={
-                  key === "effort"
-                    ? "RPE / RIR"
-                    : key === "group"
-                      ? "Superset / circuit"
-                      : key[0].toUpperCase() + key.slice(1)
+                  key === "videoUrl"
+                    ? "Demonstration link"
+                    : key === "effort"
+                      ? "RPE / RIR"
+                      : key === "group"
+                        ? "Superset / circuit"
+                        : key[0].toUpperCase() + key.slice(1)
                 }
               >
                 {key === "mode" ? (
@@ -608,235 +555,6 @@ function PlanEditor({
         </details>
       )}
       <Action onClick={() => onSave(data)}>Confirm & save plan</Action>
-    </Modal>
-  );
-}
-function SessionEditor({
-  initial,
-  initialDate,
-  onClose,
-  onSave,
-}: {
-  initial: Workout;
-  initialDate: string;
-  onClose: () => void;
-  onSave: (date: string, data: Workout) => Promise<void>;
-}) {
-  const [data, setData] = useState(initial);
-  const [date, setDate] = useState(initialDate);
-  const activities = useEntries("activity");
-  const { hasMore, loadMore } = useData();
-  const emptySet = () => ({
-    reps: null,
-    kg: null,
-    seconds: null,
-    metres: null,
-    effort: "",
-    rest: "",
-    skipped: false,
-  });
-  return (
-    <Modal title="Record your actual session" onClose={onClose}>
-      <div className="form-grid">
-        <Field label="Session title">
-          <input
-            value={data.title}
-            onChange={(e) => setData({ ...data, title: e.target.value })}
-          />
-        </Field>
-        <Field label="Date">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </Field>
-      </div>
-      <p className="notice">
-        Enter completed values. Planned sets are blank until you record what
-        happened. Loads are stored and entered in kg; distance in metres and
-        duration in seconds.
-      </p>
-      {data.exercises.map((exercise, index) => (
-        <div className="exercise-editor" key={index}>
-          <div className="form-grid">
-            <Field label="Exercise">
-              <input
-                value={exercise.name}
-                onChange={(e) =>
-                  setData({
-                    ...data,
-                    exercises: data.exercises.map((x, i) =>
-                      i === index ? { ...x, name: e.target.value } : x,
-                    ),
-                  })
-                }
-              />
-            </Field>
-            <Field label="Exercise type">
-              <select
-                value={exercise.mode}
-                onChange={(e) =>
-                  setData({
-                    ...data,
-                    exercises: data.exercises.map((x, i) =>
-                      i === index
-                        ? { ...x, mode: e.target.value as typeof x.mode }
-                        : x,
-                    ),
-                  })
-                }
-              >
-                {["strength", "bodyweight", "cardio", "other"].map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={exercise.skipped}
-              onChange={(e) =>
-                setData({
-                  ...data,
-                  exercises: data.exercises.map((x, i) =>
-                    i === index ? { ...x, skipped: e.target.checked } : x,
-                  ),
-                })
-              }
-            />
-            Skipped exercise
-          </label>
-          {exercise.sets.map((set, j) => (
-            <div className="set-row" key={j}>
-              <strong>{j + 1}</strong>
-              {(
-                ["reps", "kg", "seconds", "metres", "effort", "rest"] as const
-              ).map((key) => (
-                <Field key={key} label={key === "effort" ? "RPE/RIR" : key}>
-                  <input
-                    type={
-                      key === "effort" || key === "rest" ? "text" : "number"
-                    }
-                    min="0"
-                    step="any"
-                    value={set[key] ?? ""}
-                    onChange={(e) =>
-                      setData({
-                        ...data,
-                        exercises: data.exercises.map((x, i) =>
-                          i === index
-                            ? {
-                                ...x,
-                                sets: x.sets.map((s, k) =>
-                                  k === j
-                                    ? {
-                                        ...s,
-                                        [key]:
-                                          key === "effort" || key === "rest"
-                                            ? e.target.value
-                                            : e.target.value === ""
-                                              ? null
-                                              : Number(e.target.value),
-                                      }
-                                    : s,
-                                ),
-                              }
-                            : x,
-                        ),
-                      })
-                    }
-                  />
-                </Field>
-              ))}
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={set.skipped}
-                  onChange={(e) =>
-                    setData({
-                      ...data,
-                      exercises: data.exercises.map((x, i) =>
-                        i === index
-                          ? {
-                              ...x,
-                              sets: x.sets.map((s, k) =>
-                                k === j
-                                  ? { ...s, skipped: e.target.checked }
-                                  : s,
-                              ),
-                            }
-                          : x,
-                      ),
-                    })
-                  }
-                />
-                Skip
-              </label>
-            </div>
-          ))}
-          <button
-            className="text-button"
-            onClick={() =>
-              setData({
-                ...data,
-                exercises: data.exercises.map((x, i) =>
-                  i === index ? { ...x, sets: [...x.sets, emptySet()] } : x,
-                ),
-              })
-            }
-          >
-            + Add set
-          </button>
-        </div>
-      ))}
-      <button
-        className="button secondary"
-        onClick={() =>
-          setData({
-            ...data,
-            exercises: [
-              ...data.exercises,
-              {
-                name: "New exercise",
-                mode: "strength",
-                skipped: false,
-                sets: [emptySet()],
-              },
-            ],
-          })
-        }
-      >
-        + Add exercise
-      </button>
-      <Field label="Session notes">
-        <textarea
-          value={data.notes}
-          onChange={(e) => setData({ ...data, notes: e.target.value })}
-        />
-      </Field>
-      <Field label="Link a wearable activity (optional)">
-        <select
-          value={data.activityId || ""}
-          onChange={(e) =>
-            setData({ ...data, activityId: e.target.value || null })
-          }
-        >
-          <option value="">No linked activity</option>
-          {activities.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.date} · {a.data.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {hasMore("activity") && (
-        <Action className="text-button" onClick={() => loadMore("activity")}>
-          Load earlier activities
-        </Action>
-      )}
-      <Action onClick={() => onSave(date, data)}>Save completed session</Action>
     </Modal>
   );
 }

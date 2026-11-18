@@ -53,7 +53,7 @@ test("demo is isolated, responsive, and uses accessible measurement controls", a
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("link", { name: "Workouts", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Make room for movement." }),
+    page.getByRole("heading", { name: "Workouts", exact: true }),
   ).toBeVisible();
   expect(calls).toEqual([]);
   expect(errors).toEqual([]);
@@ -113,11 +113,65 @@ test("XLSX import has mapping, retained notes, editable preview, and explicit sa
   await expect(page.getByText(/Outside-table note:/)).toBeVisible();
   await page.getByRole("button", { name: "Confirm & save plan" }).click();
   await expect(
-    page.getByRole("heading", {
-      name: "Reviewed synthetic import",
+    page
+      .getByRole("combobox", { name: "Plan", exact: true })
+      .locator("option:checked"),
+  ).toHaveText("Reviewed synthetic import");
+});
+test("compact workout logger shows previous sets and saves entered weight and reps", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/demo/workouts");
+  await page.getByText("Manage plan", { exact: true }).click();
+  await page
+    .getByLabel("Add demonstration links from workbook", { exact: false })
+    .setInputFiles({
+      name: "videos.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        "Exercise,Video\nGoblet squat,https://example.test/demo",
+      ),
+    });
+  await expect(
+    page.getByRole("link", {
+      name: "Watch Goblet squat demonstration",
       exact: true,
     }),
+  ).toHaveAttribute("href", "https://example.test/demo");
+  await page.getByText("Manage plan", { exact: true }).click();
+  const card = page.getByRole("region", { name: "Goblet squat", exact: true });
+  await expect(card.getByRole("columnheader")).toHaveText([
+    "Set",
+    "Previous",
+    "Weight (kg)",
+    "Reps",
+  ]);
+  await expect(card.getByText("20 kg × 10", { exact: true })).toHaveCount(3);
+  await card
+    .getByLabel("Goblet squat set 1 weight (kg)", { exact: true })
+    .fill("25");
+  await card.getByLabel("Goblet squat set 1 reps", { exact: true }).fill("12");
+  await page
+    .getByRole("button", { name: "Save completed session", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Workout saved.", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Log another workout", exact: true })
+    .click();
+  await expect(card.getByText("25 kg × 12", { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await card.screenshot({ path: "artifacts/private/compact-workout-card.png" });
+  await page.screenshot({
+    path: "artifacts/private/compact-workout-mobile.png",
+    fullPage: true,
+  });
 });
 test("all direct routes load and dark mode works", async ({ page }) => {
   for (const [path, title] of [
