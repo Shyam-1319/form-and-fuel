@@ -58,6 +58,9 @@ export interface AiProvider {
     image?: string,
   ): Promise<unknown>;
 }
+export function isAiConfigured(env: Env): boolean {
+  return env.AI_ENABLED === "true" && !!env.GROQ_API_KEY && !!env.GROQ_MODEL;
+}
 export class GroqProvider implements AiProvider {
   constructor(private env: Env) {}
   async complete(
@@ -124,7 +127,7 @@ export async function analyze(
   input: unknown,
   provider: AiProvider = new GroqProvider(env),
 ) {
-  if (env.AI_ENABLED !== "true" || !env.GROQ_API_KEY || !env.GROQ_MODEL)
+  if (!isAiConfigured(env))
     throw new HttpError(
       503,
       "AI is not enabled. You can still log everything manually.",

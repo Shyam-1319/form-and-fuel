@@ -215,8 +215,23 @@ it.skipIf(!process.env.LOCAL_IMPORT_WORKBOOK)(
 it("health checks the actual schema and denies anonymous private access", async () => {
   expect(
     await (await handleRequest(request("/api/health"), env)).json(),
-  ).toEqual({ status: "ok", database: true });
+  ).toEqual({ status: "ok", database: true, ai: false });
   expect((await handleRequest(request("/api/records"), env)).status).toBe(401);
+});
+it("reports AI ready only with its flag, key and model, without exposing values", async () => {
+  const enabled = { ...env, AI_ENABLED: "true", GROQ_API_KEY: "synthetic-private-key", GROQ_MODEL: "test-model" };
+  for (const [overrides, ready] of [
+    [{}, true],
+    [{ GROQ_API_KEY: "" }, false],
+    [{ GROQ_MODEL: "" }, false],
+    [{ AI_ENABLED: "false" }, false],
+  ] as const) {
+    const configured = { ...enabled, ...overrides };
+    const health = await handleRequest(request("/api/health"), configured);
+    expect(await health.json()).toEqual({ status: "ok", database: true, ai: ready });
+    const capabilities = await handlePrivate(request("/api/capabilities"), configured, alice);
+    expect(await capabilities.json()).toEqual({ ai: ready, photo: false });
+  }
 });
 it("rejects cross-origin mutations before authentication", async () => {
   const r = new Request("http://localhost:8788/api/records", {

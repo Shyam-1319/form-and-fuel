@@ -12,7 +12,7 @@ import {
 } from "../src/lib/domain";
 import { owned, decode, quota, type Row } from "./db";
 import { connect, status, sync } from "./intervals";
-import { analyze } from "./ai";
+import { analyze, isAiConfigured } from "./ai";
 const writeSchema = z.object({
   kind: z.enum([
     "meal",
@@ -55,8 +55,8 @@ export async function handlePrivate(
     );
   if (path === "/api/capabilities" && method === "GET")
     return json({
-      ai: env.AI_ENABLED === "true",
-      photo: env.AI_ENABLED === "true" && env.AI_VISION_ENABLED === "true",
+      ai: isAiConfigured(env),
+      photo: isAiConfigured(env) && env.AI_VISION_ENABLED === "true",
     });
   if (path === "/api/settings") {
     if (method === "GET") {
@@ -342,7 +342,7 @@ export async function handleRequest(
           "SELECT r.id,s.user_id,i.user_id,a.request_id,u.id,se.id,ac.id,v.id,rl.id,us.bucket FROM records r,settings s,integrations i,ai_requests a,user u,session se,account ac,verification v,rateLimit rl,usage us LIMIT 0",
         ).all();
         return json(
-          { status: result ? "ok" : "unavailable", database: !!result },
+          { status: result ? "ok" : "unavailable", database: !!result, ai: isAiConfigured(env) },
           result ? 200 : 503,
         );
       } catch {

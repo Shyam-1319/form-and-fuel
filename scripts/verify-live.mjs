@@ -8,6 +8,8 @@ for (const path of ["/", "/demo", "/demo/workouts", "/api/health"]) {
     const result = await response.json();
     if (result.status !== "ok" || result.database !== true)
       throw new Error("Database health check failed");
+    if (config.vars.AI_ENABLED === "true" && result.ai !== true)
+      throw new Error("Production AI configuration check failed");
   } else if (!(await response.text()).includes('id="root"'))
     throw new Error(`${path}: app shell missing`);
   console.log(`${path}: passed`);
