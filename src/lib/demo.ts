@@ -221,6 +221,8 @@ export function demoData(): { settings: Settings; entries: Entry[] } {
   }
   add("recipe", today, {
     title: "My yogurt bowl",
+    favourite: true,
+    category: "Breakfast",
     servings: 1,
     foods: [
       {

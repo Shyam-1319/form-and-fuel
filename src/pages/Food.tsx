@@ -1,5 +1,7 @@
 import { PhotoInput } from "../components/PhotoInput";
-import { useEffect, useState } from "react";
+import { QuickMeals, SaveFavourite } from "../components/QuickMeals";
+import { recipeMeal } from "../lib/meals";
+import { useEffect, useRef, useState } from "react";
 import {
   Link,
   useLocation,
@@ -14,6 +16,7 @@ import {
   Copy,
   ArrowRight,
   BookOpen,
+  Star,
 } from "lucide-react";
 import { useData, useEntries, api } from "../lib/store";
 import {
@@ -36,6 +39,8 @@ export function FoodEditor() {
   const edit = meals.find((e) => e.id === params.get("edit"));
   const copy = meals.find((e) => e.id === params.get("copy"));
   const original = edit || copy;
+  const selectedRecipe = recipes.find((r) => r.id === params.get("recipe"));
+  const loadedRecipe = useRef<string | undefined>(undefined);
   const nav = useNavigate();
   const base = useLocation().pathname.startsWith("/demo") ? "/demo" : "";
   const [data, setData] = useState<Meal>(
@@ -75,6 +80,16 @@ export function FoodEditor() {
         source: copy ? "copy" : original.data.source,
       });
   }, [original, copy]);
+  useEffect(() => {
+    if (
+      selectedRecipe &&
+      !original &&
+      loadedRecipe.current !== selectedRecipe.id
+    ) {
+      setData(recipeMeal(selectedRecipe.data));
+      loadedRecipe.current = selectedRecipe.id;
+    }
+  }, [selectedRecipe, original]);
   const total = totals(data.foods);
   function updateFood(index: number, key: keyof Food, value: string) {
     setData({
@@ -136,6 +151,26 @@ export function FoodEditor() {
         title={edit ? "Edit your meal." : "What’s on your plate?"}
         description="Start with your own values or review an AI estimate. You’re always in control."
       />
+      {!edit && (
+        <QuickMeals
+          onLoad={(meal) => {
+            setData(meal);
+            setDate(dayInZone(new Date(), settings.timezone));
+            setDescription("");
+            setImage(undefined);
+            setAiId(crypto.randomUUID());
+            setFactor("1");
+            setSavedNotice(
+              "Meal loaded into preview. Review it, then confirm to save.",
+            );
+          }}
+        />
+      )}
+      {savedNotice && (
+        <p className="success" role="status">
+          {savedNotice}
+        </p>
+      )}
       <div className="editor-layout">
         <div>
           <Card>
@@ -392,6 +427,7 @@ export function FoodEditor() {
             <p className="small muted">
               Saving records only the meal shown in this preview.
             </p>
+            <SaveFavourite meal={data} />
           </Card>
           <Card>
             <h3>
@@ -425,14 +461,8 @@ export function FoodEditor() {
               onClick={() => {
                 const recipe = recipes.find((r) => r.id === recipeId)!;
                 setData({
-                  ...data,
-                  title: recipe.data.title,
-                  foods: scaleFoods(
-                    recipe.data.foods,
-                    Number(recipeServings) / recipe.data.servings,
-                  ),
-                  source: "recipe",
-                  notes: recipe.data.notes,
+                  ...recipeMeal(recipe.data, Number(recipeServings)),
+                  time: data.time,
                 });
               }}
             >
@@ -450,6 +480,8 @@ export function FoodEditor() {
                     foods: data.foods,
                     servings: 1,
                     notes: data.notes,
+                    category: data.category,
+                    assumptions: data.assumptions,
                   }),
                 );
                 setSavedNotice(
@@ -459,11 +491,6 @@ export function FoodEditor() {
             >
               Save current meal as recipe
             </Action>
-            {savedNotice && (
-              <p className="success" role="status">
-                {savedNotice}
-              </p>
-            )}
             <Link className="text-button" to={`${base}/history?recipes=1`}>
               Manage recipes
             </Link>
@@ -544,9 +571,31 @@ export function FoodHistory() {
               </p>
               <p>{r.data.notes}</p>
               <div className="split">
-                <Link className="text-button" to={`${base}/add-meal`}>
+                <Link
+                  className="text-button"
+                  to={`${base}/add-meal?recipe=${r.id}`}
+                >
                   Load in meal editor
                 </Link>
+                <Action
+                  className="text-button"
+                  onClick={async () => {
+                    await save(
+                      "recipe",
+                      r.date,
+                      { ...r.data, favourite: !r.data.favourite },
+                      r.id,
+                    );
+                  }}
+                >
+                  <Star
+                    size={16}
+                    fill={r.data.favourite ? "currentColor" : "none"}
+                  />
+                  {r.data.favourite
+                    ? "Remove from favourites"
+                    : "Add to favourites"}
+                </Action>
                 <Action
                   className="text-button"
                   onClick={async () => {
@@ -579,6 +628,11 @@ export function FoodHistory() {
           ))}
           {!recipes.length && (
             <Empty>Save a meal as a recipe from the meal editor.</Empty>
+          )}
+          {hasMore("recipe") && (
+            <Action onClick={() => loadMore("recipe")}>
+              Load more recipes
+            </Action>
           )}
         </div>
       ) : (
@@ -617,12 +671,13 @@ export function FoodHistory() {
                       Edit
                     </Link>
                     <Link
-                      className="icon-button"
+                      className="text-button"
                       title="Copy to a new meal preview"
                       to={`${base}/add-meal?copy=${e.id}`}
                     >
-                      <Copy size={16} />
+                      <Copy size={16} /> Log again
                     </Link>
+                    <SaveFavourite meal={e.data} />
                     <Action
                       className="text-button danger-text"
                       onClick={async () => {
@@ -759,7 +814,15 @@ function RecipeEdit({ id }: { id: string }) {
       </Field>
       <Action
         onClick={async () => {
-          await save("recipe", recipe.date, recipeSchema.parse(value), id);
+          await save(
+            "recipe",
+            recipe.date,
+            recipeSchema.parse({
+              ...value,
+              favourite: recipe.data.favourite,
+            }),
+            id,
+          );
           setSaved(true);
         }}
       >

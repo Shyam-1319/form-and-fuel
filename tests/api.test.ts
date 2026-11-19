@@ -219,7 +219,12 @@ it("health checks the actual schema and denies anonymous private access", async 
   expect((await handleRequest(request("/api/records"), env)).status).toBe(401);
 });
 it("reports AI ready only with its flag, key and model, without exposing values", async () => {
-  const enabled = { ...env, AI_ENABLED: "true", GROQ_API_KEY: "synthetic-private-key", GROQ_MODEL: "test-model" };
+  const enabled = {
+    ...env,
+    AI_ENABLED: "true",
+    GROQ_API_KEY: "synthetic-private-key",
+    GROQ_MODEL: "test-model",
+  };
   for (const [overrides, ready] of [
     [{}, true],
     [{ GROQ_API_KEY: "" }, false],
@@ -229,14 +234,20 @@ it("reports AI ready only with its flag, key and model, without exposing values"
     const configured = { ...enabled, ...overrides };
     const health = await handleRequest(request("/api/health"), configured);
     expect(await health.json()).toEqual({
-      status: "ok", database: true, ai: ready,
+      status: "ok",
+      database: true,
+      ai: ready,
       aiConfiguration: {
         enabled: configured.AI_ENABLED === "true",
         modelConfigured: !!configured.GROQ_MODEL,
         keyConfigured: !!configured.GROQ_API_KEY,
       },
     });
-    const capabilities = await handlePrivate(request("/api/capabilities"), configured, alice);
+    const capabilities = await handlePrivate(
+      request("/api/capabilities"),
+      configured,
+      alice,
+    );
     expect(await capabilities.json()).toEqual({ ai: ready, photo: false });
   }
 });
@@ -284,6 +295,42 @@ it("isolates reads, edits, deletes, exports and client-supplied identity", async
   ).text();
   expect(owner).toContain("Synthetic oats");
   expect(owner).not.toContain("password");
+});
+it("persists private favourites without creating diary entries", async () => {
+  const data = {
+    title: meal.title,
+    foods: meal.foods,
+    servings: 1,
+    notes: "",
+    favourite: true,
+    category: "Snack",
+    assumptions: "Estimated portion",
+  };
+  const response = await handlePrivate(
+    request("/api/records", "POST", {
+      kind: "recipe",
+      date: "2026-11-01",
+      data,
+      requestId: crypto.randomUUID(),
+    }),
+    env,
+    alice,
+  );
+  const saved = (await response.json()) as { id: string };
+  const read = await handlePrivate(
+    request(`/api/records/${saved.id}`),
+    env,
+    alice,
+  );
+  expect(await read.json()).toMatchObject({ data });
+  await expect(
+    handlePrivate(request(`/api/records/${saved.id}`), env, bob),
+  ).rejects.toMatchObject({ status: 404 });
+  expect(
+    await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM records WHERE kind='meal'",
+    ).first("n"),
+  ).toBe(0);
 });
 it("deduplicates explicit saves and rejects stale edits", async () => {
   const body = {

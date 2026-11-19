@@ -1106,6 +1106,40 @@ progress::-webkit-progress-value {
   grid-template-columns: 1fr 1fr;
   gap: 0 23px;
 }
+.quick-meals .segmented {
+  width: fit-content;
+  max-width: 100%;
+}
+.quick-meal-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+.quick-meal-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.quick-meal-choice:hover {
+  background: var(--soft);
+}
+.quick-meal-choice:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.quick-meal-choice span,
+.quick-meal-choice small {
+  color: var(--muted);
+}
 .toolbar {
   display: flex;
   gap: 18px;
@@ -1119,6 +1153,7 @@ progress::-webkit-progress-value {
 }
 .history-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 15px;
   padding: 16px 0;

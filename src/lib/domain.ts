@@ -44,6 +44,9 @@ export const recipeSchema = z.object({
   servings: z.number().positive().max(1000),
   foods: z.array(foodSchema).min(1).max(40),
   notes: text.default(""),
+  favourite: z.boolean().optional(),
+  category: z.enum(["Breakfast", "Lunch", "Dinner", "Snack"]).optional(),
+  assumptions: text.optional(),
 });
 export const regions = [
   "Neck",
