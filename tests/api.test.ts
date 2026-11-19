@@ -215,7 +215,7 @@ it.skipIf(!process.env.LOCAL_IMPORT_WORKBOOK)(
 it("health checks the actual schema and denies anonymous private access", async () => {
   expect(
     await (await handleRequest(request("/api/health"), env)).json(),
-  ).toEqual({ status: "ok", database: true, ai: false });
+  ).toMatchObject({ status: "ok", database: true, ai: false });
   expect((await handleRequest(request("/api/records"), env)).status).toBe(401);
 });
 it("reports AI ready only with its flag, key and model, without exposing values", async () => {
@@ -228,7 +228,14 @@ it("reports AI ready only with its flag, key and model, without exposing values"
   ] as const) {
     const configured = { ...enabled, ...overrides };
     const health = await handleRequest(request("/api/health"), configured);
-    expect(await health.json()).toEqual({ status: "ok", database: true, ai: ready });
+    expect(await health.json()).toEqual({
+      status: "ok", database: true, ai: ready,
+      aiConfiguration: {
+        enabled: configured.AI_ENABLED === "true",
+        modelConfigured: !!configured.GROQ_MODEL,
+        keyConfigured: !!configured.GROQ_API_KEY,
+      },
+    });
     const capabilities = await handlePrivate(request("/api/capabilities"), configured, alice);
     expect(await capabilities.json()).toEqual({ ai: ready, photo: false });
   }

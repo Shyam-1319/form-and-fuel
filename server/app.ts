@@ -342,7 +342,16 @@ export async function handleRequest(
           "SELECT r.id,s.user_id,i.user_id,a.request_id,u.id,se.id,ac.id,v.id,rl.id,us.bucket FROM records r,settings s,integrations i,ai_requests a,user u,session se,account ac,verification v,rateLimit rl,usage us LIMIT 0",
         ).all();
         return json(
-          { status: result ? "ok" : "unavailable", database: !!result, ai: isAiConfigured(env) },
+          {
+            status: result ? "ok" : "unavailable",
+            database: !!result,
+            ai: isAiConfigured(env),
+            aiConfiguration: {
+              enabled: env.AI_ENABLED === "true",
+              modelConfigured: !!env.GROQ_MODEL,
+              keyConfigured: !!env.GROQ_API_KEY,
+            },
+          },
           result ? 200 : 503,
         );
       } catch {
