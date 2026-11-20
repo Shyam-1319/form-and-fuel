@@ -79,6 +79,8 @@ test("favourites load an adjustable preview and recent meals repeat only after c
   });
   await card.getByRole("button", { name: "Remove from favourites" }).click();
   await card.getByRole("link", { name: "Load in meal editor" }).click();
+  await expect(page).toHaveURL(/\/add-meal\?recipe=/);
+  await expect(page.getByRole("heading", { name: "What’s on your plate?" })).toBeVisible();
   await expect(page.getByLabel("Calories (kcal)", { exact: true })).toHaveValue(
     "300",
   );
