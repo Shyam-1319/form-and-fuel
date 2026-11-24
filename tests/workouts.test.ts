@@ -3,7 +3,48 @@ import {
   previousExercise,
   emptySet,
   addWorkbookVideos,
+  exerciseProgress,
+  progressExercises,
 } from "../src/lib/workouts";
+it("tracks exact movements chronologically and excludes skipped and incomplete sets", () => {
+  const older = entry("older", "2026-01-01", 20);
+  const newer = entry("newer", "2026-01-02", 25);
+  newer.data.exercises[0].sets.push(
+    { ...emptySet(), kg: 100, reps: 0 },
+    { ...emptySet(), kg: 90, reps: 5, skipped: true },
+    { ...emptySet(), reps: 12 },
+  );
+  const skipped = entry("skipped", "2026-01-03", 200, true);
+  const other = entry("other", "2026-01-04", 300);
+  other.data.exercises[0].name = "Test exercise variation";
+  const points = exerciseProgress(
+    [other, newer, skipped, older],
+    "test exercise",
+    "strength",
+  );
+  expect(points.map((p) => p.id)).toEqual(["older", "newer"]);
+  expect(points[1]).toMatchObject({
+    topKg: 25,
+    topReps: 8,
+    reps: 20,
+    volume: 200,
+  });
+  expect(points[1].sets).toHaveLength(2);
+  expect(progressExercises([older, newer, skipped, other])).toHaveLength(2);
+});
+it("keeps bodyweight and strength separate and preserves unknown weight", () => {
+  const body = entry("body", "2026-01-01", null);
+  body.data.exercises[0].mode = "bodyweight";
+  body.data.exercises[0].sets[0].reps = 15;
+  const strength = entry("strength", "2026-01-01", 0);
+  expect(progressExercises([body, strength])).toHaveLength(2);
+  expect(
+    exerciseProgress([body, strength], "test exercise", "bodyweight")[0],
+  ).toMatchObject({ topKg: null, reps: 15, volume: null });
+  expect(
+    exerciseProgress([body, strength], "test exercise", "strength")[0],
+  ).toMatchObject({ topKg: 0, volume: 0 });
+});
 import { type Entry, emptyExercise, type Plan } from "../src/lib/domain";
 it("adds only unambiguous missing workbook links without changing plan values", () => {
   const original: Plan = {

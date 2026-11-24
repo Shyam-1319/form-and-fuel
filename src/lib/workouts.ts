@@ -2,6 +2,71 @@ import { type Entry, type Workout, type Plan, safeVideoUrl } from "./domain";
 
 const normalized = (name: string) =>
   name.trim().replace(/\s+/g, " ").toLowerCase();
+export function exerciseProgress(
+  sessions: Entry<"session">[],
+  name: string,
+  mode: "strength" | "bodyweight",
+) {
+  return [...sessions]
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.createdAt.localeCompare(b.createdAt) ||
+        a.id.localeCompare(b.id),
+    )
+    .flatMap((session) => {
+      const sets = session.data.exercises
+        .filter(
+          (e) =>
+            !e.skipped &&
+            e.mode === mode &&
+            normalized(e.name) === normalized(name),
+        )
+        .flatMap((e) =>
+          e.sets.filter((s) => !s.skipped && s.reps !== null && s.reps > 0),
+        );
+      if (!sets.length) return [];
+      const loaded = sets.filter((s) => s.kg !== null);
+      const top = [...loaded].sort(
+        (a, b) => b.kg! - a.kg! || b.reps! - a.reps!,
+      )[0];
+      return [
+        {
+          id: session.id,
+          date: session.date,
+          title: session.data.title,
+          sets,
+          topKg: top?.kg ?? null,
+          topReps: top?.reps ?? null,
+          reps: sets.reduce((sum, s) => sum + s.reps!, 0),
+          volume:
+            mode === "strength" && loaded.length
+              ? loaded.reduce((sum, s) => sum + s.kg! * s.reps!, 0)
+              : null,
+        },
+      ];
+    });
+}
+
+export function progressExercises(sessions: Entry<"session">[]) {
+  const choices = new Map<
+    string,
+    { name: string; mode: "strength" | "bodyweight" }
+  >();
+  for (const session of sessions)
+    for (const e of session.data.exercises) {
+      if (
+        e.skipped ||
+        (e.mode !== "strength" && e.mode !== "bodyweight") ||
+        !e.sets.some((s) => !s.skipped && (s.reps ?? 0) > 0)
+      )
+        continue;
+      const key = JSON.stringify([normalized(e.name), e.mode]);
+      if (!choices.has(key))
+        choices.set(key, { name: e.name.trim(), mode: e.mode });
+    }
+  return [...choices].sort((a, b) => a[1].name.localeCompare(b[1].name));
+}
 export function addWorkbookVideos(
   plan: Plan,
   imported: Plan,

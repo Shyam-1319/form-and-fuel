@@ -1106,6 +1106,24 @@ progress::-webkit-progress-value {
   grid-template-columns: 1fr 1fr;
   gap: 0 23px;
 }
+.exercise-progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+.exercise-progress-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.exercise-progress-stats strong {
+  font-size: 20px;
+}
+.exercise-progress-stats span,
+.exercise-progress-stats small {
+  color: var(--muted);
+}
 .quick-meals .segmented {
   width: fit-content;
   max-width: 100%;

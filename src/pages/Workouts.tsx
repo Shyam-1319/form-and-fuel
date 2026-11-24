@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ExerciseProgress } from "../components/ExerciseProgress";
 import {
   PlanWorkout,
   WorkoutLogger as SessionEditor,
@@ -137,9 +138,17 @@ export function Workouts() {
           >
             Exercise history
           </button>
+          <button
+            className={tab === "progress" ? "selected" : ""}
+            onClick={() => setTab("progress")}
+          >
+            Exercise progress
+          </button>
         </div>
       </div>
-      {tab === "plans" ? (
+      {tab === "progress" ? (
+        <ExerciseProgress />
+      ) : tab === "plans" ? (
         <>
           <div className="workout-plans">
             <PlanWorkout
