@@ -332,6 +332,49 @@ it("persists private favourites without creating diary entries", async () => {
     ).first("n"),
   ).toBe(0);
 });
+it("copies meal previews atomically, preserves originals and deduplicates retries per user", async () => {
+  const body = {
+    date: "2026-11-02",
+    meals: [meal, { ...meal, title: "Second meal", assumptions: "Estimate" }],
+    requestId: crypto.randomUUID(),
+  };
+  const send = () =>
+    handlePrivate(request("/api/meals/copy-day", "POST", body), env, alice);
+  const first = (await (await send()).json()) as {
+    items: { id: string; date: string; data: { source: string } }[];
+  };
+  const retry = (await (await send()).json()) as typeof first;
+  expect(first.items).toHaveLength(2);
+  expect(retry.items.map((item) => item.id).sort()).toEqual(
+    first.items.map((item) => item.id).sort(),
+  );
+  expect(
+    first.items.every(
+      (item) => item.date === body.date && item.data.source === "copy",
+    ),
+  ).toBe(true);
+  await expect(
+    handlePrivate(
+      request("/api/meals/copy-day", "POST", {
+        ...body,
+        requestId: crypto.randomUUID(),
+        meals: [meal, { ...meal, foods: [] }],
+      }),
+      env,
+      alice,
+    ),
+  ).rejects.toThrow();
+  expect(
+    await env.DB.prepare("SELECT COUNT(*) AS n FROM records WHERE user_id=?")
+      .bind(alice.id)
+      .first("n"),
+  ).toBe(2);
+  const bobResult = (await (
+    await handlePrivate(request("/api/meals/copy-day", "POST", body), env, bob)
+  ).json()) as typeof first;
+  expect(bobResult.items).toHaveLength(2);
+  expect(bobResult.items[0].id).not.toBe(first.items[0].id);
+});
 it("deduplicates explicit saves and rejects stale edits", async () => {
   const body = {
     kind: "meal",

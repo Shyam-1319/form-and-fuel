@@ -7,6 +7,7 @@ import {
   editableSchemas,
   settingsSchema,
   daySchema,
+  mealSchema,
   defaults,
   type EditableKind,
 } from "../src/lib/domain";
@@ -121,6 +122,37 @@ export async function handlePrivate(
       cursor:
         rows.results.length > limit && last ? `${last.date}|${last.id}` : null,
     });
+  }
+  if (path === "/api/meals/copy-day" && method === "POST") {
+    const input = z
+      .object({
+        date: daySchema,
+        requestId: z.string().uuid(),
+        meals: z.array(mealSchema).min(1).max(100),
+      })
+      .parse(await readJson(request, 1000000));
+    const now = new Date().toISOString();
+    await env.DB.batch(
+      input.meals.map((meal, index) =>
+        env.DB.prepare(
+          "INSERT INTO records(id,user_id,kind,date,data,created_at,updated_at,request_id) VALUES(?,?,'meal',?,?,?,?,?) ON CONFLICT(user_id,request_id) DO NOTHING",
+        ).bind(
+          crypto.randomUUID(),
+          user.id,
+          input.date,
+          JSON.stringify({ ...meal, source: "copy" }),
+          now,
+          now,
+          `copy-day:${input.requestId}:${index}`,
+        ),
+      ),
+    );
+    const result = await env.DB.prepare(
+      "SELECT id,kind,date,data,created_at,updated_at FROM records WHERE user_id=? AND request_id LIKE ? ORDER BY data",
+    )
+      .bind(user.id, `copy-day:${input.requestId}:%`)
+      .all<Row>();
+    return json({ items: result.results.map(decode) }, 201);
   }
   if (path === "/api/records" && method === "POST") {
     const input = writeSchema.parse(

@@ -1106,6 +1106,12 @@ progress::-webkit-progress-value {
   grid-template-columns: 1fr 1fr;
   gap: 0 23px;
 }
+.copy-day-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
 .exercise-progress-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));

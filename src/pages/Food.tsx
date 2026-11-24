@@ -1,4 +1,5 @@
 import { PhotoInput } from "../components/PhotoInput";
+import { CopyDayMeals } from "../components/CopyDayMeals";
 import { QuickMeals, SaveFavourite } from "../components/QuickMeals";
 import { recipeMeal } from "../lib/meals";
 import { useEffect, useRef, useState } from "react";
@@ -501,6 +502,8 @@ export function FoodEditor() {
   );
 }
 export function FoodHistory() {
+  const [copyDay, setCopyDay] = useState(false);
+  const [copyNotice, setCopyNotice] = useState("");
   const { remove, save, loadMore, hasMore } = useData();
   const meals = useEntries("meal"),
     recipes = useEntries("recipe");
@@ -520,11 +523,36 @@ export function FoodHistory() {
         title="Every meal has a place."
         description="Review what you’ve recorded, and adjust whenever you need to."
         action={
-          <Link className="button" to={`${base}/add-meal`}>
-            <Plus size={17} /> Add meal
-          </Link>
+          <div className="split">
+            <button
+              className="button secondary"
+              onClick={() => setCopyDay(true)}
+            >
+              <Copy size={17} /> Copy a day
+            </button>
+            <Link className="button" to={`${base}/add-meal`}>
+              <Plus size={17} /> Add meal
+            </Link>
+          </div>
         }
       />
+      {copyNotice && (
+        <p className="success" role="status">
+          {copyNotice}
+        </p>
+      )}
+      {copyDay && (
+        <CopyDayMeals
+          onClose={() => setCopyDay(false)}
+          onSaved={(date, count) => {
+            setCopyDay(false);
+            setTemplates(false);
+            setFrom(date);
+            setTo(date);
+            setCopyNotice(`Copied ${count} meal(s) to ${date}.`);
+          }}
+        />
+      )}
       <div className="toolbar">
         <div className="segmented">
           <button

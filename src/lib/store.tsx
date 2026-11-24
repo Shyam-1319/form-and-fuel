@@ -56,6 +56,11 @@ type Store = {
     requestId?: string,
   ) => Promise<Entry>;
   remove: (id: string) => Promise<void>;
+  copyMeals: (
+    date: string,
+    meals: DataByKind["meal"][],
+    requestId: string,
+  ) => Promise<void>;
   saveSettings: (value: Settings) => Promise<void>;
   loadMore: (kind: Kind) => Promise<void>;
   hasMore: (kind: Kind) => boolean;
@@ -151,6 +156,36 @@ export function DataProvider({
     if (!demo) await api(`/records/${id}`, { method: "DELETE" });
     setEntries((all) => all.filter((e) => e.id !== id));
   }
+  async function copyMeals(
+    date: string,
+    meals: DataByKind["meal"][],
+    requestId: string,
+  ) {
+    daySchema.parse(date);
+    if (!meals.length || meals.length > 100)
+      throw new Error("Select between 1 and 100 meals");
+    meals.forEach((meal) => editableSchemas.meal.parse(meal));
+    const now = new Date().toISOString();
+    const items: Entry[] = demo
+      ? meals.map((meal, index) => ({
+          id: `${requestId}-${index}`,
+          kind: "meal",
+          date,
+          data: { ...meal, source: "copy" },
+          createdAt: now,
+          updatedAt: now,
+        }))
+      : (
+          await api<{ items: Entry[] }>("/meals/copy-day", {
+            method: "POST",
+            body: JSON.stringify({ date, meals, requestId }),
+          })
+        ).items;
+    setEntries((all) => [
+      ...items,
+      ...all.filter((entry) => !items.some((item) => item.id === entry.id)),
+    ]);
+  }
   async function saveSettings(value: Settings) {
     if (!demo)
       await api("/settings", { method: "PUT", body: JSON.stringify(value) });
@@ -179,6 +214,7 @@ export function DataProvider({
         refresh,
         save,
         remove,
+        copyMeals,
         saveSettings,
         loadMore,
         hasMore: (kind) => !!cursors[kind],
