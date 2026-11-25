@@ -160,18 +160,28 @@ export function Stat({
   unit,
   detail,
   accent = false,
+  onClick,
 }: {
   label: string;
   value: string | number;
   unit?: string;
   detail?: string;
   accent?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Card className={accent ? "stat accent" : "stat"}>
       <div className="stat-label">
         {label}
-        <ArrowUpRight size={16} />
+        {onClick && (
+          <button
+            className="icon-button"
+            aria-label={`View ${label.toLowerCase()} history`}
+            onClick={onClick}
+          >
+            <ArrowUpRight size={16} />
+          </button>
+        )}
       </div>
       <div className="stat-value">
         {value}

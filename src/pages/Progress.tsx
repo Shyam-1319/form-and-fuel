@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useData, api } from "../lib/store";
 import { dayInZone, addDays, totals, type Entry } from "../lib/domain";
 import { Heading, Card, Chart, Field, Action, fmt } from "../components/ui";
-type Aggregate = {
+export type Aggregate = {
   period: string;
   kind: string;
   entries: number;
@@ -22,7 +22,7 @@ type Aggregate = {
   rmssd: number | null;
   sdnn: number | null;
 };
-function demoAggregate(
+export function demoAggregate(
   entries: Entry[],
   from: string,
   to: string,

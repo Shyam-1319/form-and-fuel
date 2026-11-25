@@ -29,7 +29,11 @@ import {
   Modal,
 } from "../components/ui";
 import { BodyMap } from "../components/BodyMap";
+import { MetricHistory, type HistoryMetric } from "../components/MetricHistory";
 export function Today() {
+  const [historyMetric, setHistoryMetric] = useState<HistoryMetric | null>(
+    null,
+  );
   const { settings, demo, save } = useData();
   const meals = useEntries("meal"),
     water = useEntries("water"),
@@ -92,6 +96,7 @@ export function Today() {
         <Stat
           accent
           label="Calories consumed"
+          onClick={() => setHistoryMetric("calories")}
           value={todays.length ? fmt(sum.calories) : "—"}
           unit="kcal"
           detail={
@@ -102,18 +107,21 @@ export function Today() {
         />
         <Stat
           label="Protein"
+          onClick={() => setHistoryMetric("protein")}
           value={todays.length ? fmt(sum.protein) : "—"}
           unit="g"
           detail={`of ${settings.targets.protein} g daily target`}
         />
         <Stat
           label="Water"
+          onClick={() => setHistoryMetric("water")}
           value={consumed ? fmt(consumed / 1000, 2) : "—"}
           unit="L"
           detail={`of ${fmt(settings.targets.water / 1000, 1)} L daily target`}
         />
         <Stat
           label="Sleep"
+          onClick={() => setHistoryMetric("sleep")}
           value={
             latest?.data.sleepSeconds != null
               ? fmt(latest.data.sleepSeconds / 3600, 1)
@@ -299,6 +307,12 @@ export function Today() {
         </div>
       </div>
       {weight && <LogEditor kind="weight" onClose={() => setWeight(false)} />}
+      {historyMetric && (
+        <MetricHistory
+          metric={historyMetric}
+          onClose={() => setHistoryMetric(null)}
+        />
+      )}
     </>
   );
 }
