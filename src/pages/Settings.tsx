@@ -26,7 +26,13 @@ type SyncStatus = {
   status: string;
   error: string | null;
 };
-export function Settings({ onDeleted }: { onDeleted: () => void }) {
+export function Settings({
+  onDeleted,
+  section = "settings",
+}: {
+  onDeleted: () => void;
+  section?: "profile" | "targets" | "settings";
+}) {
   const { settings, saveSettings, demo, reset, entries } = useData();
   const [value, setValue] = useState(settings);
   const [notice, setNotice] = useState("");
@@ -41,6 +47,10 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
         .then(setAccountOptions)
         .catch(() => setAccountOptions(null));
   }, [demo]);
+  const onboarding = !settings.onboarded;
+  const showProfile = onboarding || section === "profile";
+  const showTargets = onboarding || section === "targets";
+  const showSettings = onboarding || section === "settings";
   const imperial = value.units === "imperial";
   return (
     <>
@@ -48,317 +58,347 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
         eyebrow="MAKE IT YOURS"
         title={
           settings.onboarded
-            ? "Your space, your settings."
+            ? section === "profile"
+              ? "Your profile."
+              : section === "targets"
+                ? "Your daily targets."
+                : "Your space, your settings."
             : "Let’s find your starting point."
         }
         description="Share only what’s useful to you. Every target is yours to adjust."
       />
       <div className="editor-layout">
         <div>
-          <Card>
-            <h2>Your profile</h2>
-            <div className="form-grid">
-              <Field label="Display name">
-                <input
-                  value={value.displayName}
-                  onChange={(e) =>
-                    setValue({ ...value, displayName: e.target.value })
-                  }
-                />
-              </Field>
-              <Field
-                label="Timezone"
-                hint="For India, choose Asia/Kolkata (IST, UTC+05:30). Existing diary dates stay as recorded."
-              >
-                <input
-                  list="timezones"
-                  value={value.timezone}
-                  onChange={(e) =>
-                    setValue({ ...value, timezone: e.target.value })
-                  }
-                />
-                <datalist id="timezones">
-                  <option
-                    value="Asia/Kolkata"
-                    label="India — IST (UTC+05:30)"
-                  />
-                  <option value="UTC" label="Coordinated Universal Time" />
-                  {Intl.supportedValuesOf("timeZone")
-                    .filter((t) => t !== "Asia/Kolkata" && t !== "UTC")
-                    .map((t) => (
-                      <option key={t} value={t} />
+          {(showProfile || showTargets) && (
+            <Card>
+              {showProfile && (
+                <>
+                  <h2>Your profile</h2>
+                  <div className="form-grid">
+                    <Field label="Display name">
+                      <input
+                        value={value.displayName}
+                        onChange={(e) =>
+                          setValue({ ...value, displayName: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label="Timezone"
+                      hint="For India, choose Asia/Kolkata (IST, UTC+05:30). Existing diary dates stay as recorded."
+                    >
+                      <input
+                        list="timezones"
+                        value={value.timezone}
+                        onChange={(e) =>
+                          setValue({ ...value, timezone: e.target.value })
+                        }
+                      />
+                      <datalist id="timezones">
+                        <option
+                          value="Asia/Kolkata"
+                          label="India — IST (UTC+05:30)"
+                        />
+                        <option
+                          value="UTC"
+                          label="Coordinated Universal Time"
+                        />
+                        {Intl.supportedValuesOf("timeZone")
+                          .filter((t) => t !== "Asia/Kolkata" && t !== "UTC")
+                          .map((t) => (
+                            <option key={t} value={t} />
+                          ))}
+                      </datalist>
+                    </Field>
+                    <Field label="Units">
+                      <select
+                        value={value.units}
+                        onChange={(e) =>
+                          setValue({
+                            ...value,
+                            units: e.target.value as "metric" | "imperial",
+                          })
+                        }
+                      >
+                        <option value="metric">Metric</option>
+                        <option value="imperial">Imperial</option>
+                      </select>
+                    </Field>
+                    <Field
+                      label={`Height (${imperial ? "in" : "cm"}, optional)`}
+                    >
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={
+                          value.heightCm == null
+                            ? ""
+                            : Number(
+                                (imperial
+                                  ? cmToIn(value.heightCm)
+                                  : value.heightCm
+                                ).toFixed(2),
+                              )
+                        }
+                        onChange={(e) =>
+                          setValue({
+                            ...value,
+                            heightCm:
+                              e.target.value === ""
+                                ? null
+                                : imperial
+                                  ? inToCm(Number(e.target.value))
+                                  : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label={`Target weight (${imperial ? "lb" : "kg"}, optional)`}
+                    >
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={
+                          value.targetWeightKg == null
+                            ? ""
+                            : Number(
+                                (imperial
+                                  ? kgToLb(value.targetWeightKg)
+                                  : value.targetWeightKg
+                                ).toFixed(2),
+                              )
+                        }
+                        onChange={(e) =>
+                          setValue({
+                            ...value,
+                            targetWeightKg:
+                              e.target.value === ""
+                                ? null
+                                : imperial
+                                  ? lbToKg(Number(e.target.value))
+                                  : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Your goals">
+                    <textarea
+                      placeholder="What would you like to work toward?"
+                      value={value.goals}
+                      onChange={(e) =>
+                        setValue({ ...value, goals: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Dietary preferences">
+                    <textarea
+                      value={value.preferences}
+                      onChange={(e) =>
+                        setValue({ ...value, preferences: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field
+                    label="Allergies or exclusions"
+                    hint="Included in meal AI requests when you consent. Always verify food ingredients yourself."
+                  >
+                    <textarea
+                      value={value.allergies}
+                      onChange={(e) =>
+                        setValue({ ...value, allergies: e.target.value })
+                      }
+                    />
+                  </Field>
+                </>
+              )}
+              {showTargets && (
+                <>
+                  <h2>Daily targets</h2>
+                  <p className="small muted">
+                    Initial values are general placeholders, not a personalized
+                    recommendation. No age, sex or activity assumptions are
+                    used. Set appropriate targets yourself; wearable calories
+                    never change them.
+                  </p>
+                  <div className="form-grid">
+                    {Object.entries(value.targets).map(([key, num]) => (
+                      <Field
+                        key={key}
+                        label={`${key[0].toUpperCase() + key.slice(1)} (${key === "calories" ? "kcal" : key === "water" ? (imperial ? "US fl oz" : "ml") : "g"})`}
+                      >
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={
+                            key === "water" && imperial
+                              ? Number((num / 29.5735295625).toFixed(2))
+                              : num
+                          }
+                          onChange={(e) =>
+                            setValue({
+                              ...value,
+                              targets: {
+                                ...value.targets,
+                                [key]:
+                                  Number(e.target.value) *
+                                  (key === "water" && imperial
+                                    ? 29.5735295625
+                                    : 1),
+                              },
+                            })
+                          }
+                        />
+                      </Field>
                     ))}
-                </datalist>
-              </Field>
-              <Field label="Units">
-                <select
-                  value={value.units}
-                  onChange={(e) =>
-                    setValue({
-                      ...value,
-                      units: e.target.value as "metric" | "imperial",
-                    })
-                  }
-                >
-                  <option value="metric">Metric</option>
-                  <option value="imperial">Imperial</option>
-                </select>
-              </Field>
-              <Field label={`Height (${imperial ? "in" : "cm"}, optional)`}>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={
-                    value.heightCm == null
-                      ? ""
-                      : Number(
-                          (imperial
-                            ? cmToIn(value.heightCm)
-                            : value.heightCm
-                          ).toFixed(2),
-                        )
-                  }
-                  onChange={(e) =>
-                    setValue({
-                      ...value,
-                      heightCm:
-                        e.target.value === ""
-                          ? null
-                          : imperial
-                            ? inToCm(Number(e.target.value))
-                            : Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label={`Target weight (${imperial ? "lb" : "kg"}, optional)`}
-              >
-                <input
-                  type="number"
-                  step="0.1"
-                  value={
-                    value.targetWeightKg == null
-                      ? ""
-                      : Number(
-                          (imperial
-                            ? kgToLb(value.targetWeightKg)
-                            : value.targetWeightKg
-                          ).toFixed(2),
-                        )
-                  }
-                  onChange={(e) =>
-                    setValue({
-                      ...value,
-                      targetWeightKg:
-                        e.target.value === ""
-                          ? null
-                          : imperial
-                            ? lbToKg(Number(e.target.value))
-                            : Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="Your goals">
-              <textarea
-                placeholder="What would you like to work toward?"
-                value={value.goals}
-                onChange={(e) => setValue({ ...value, goals: e.target.value })}
-              />
-            </Field>
-            <Field label="Dietary preferences">
-              <textarea
-                value={value.preferences}
-                onChange={(e) =>
-                  setValue({ ...value, preferences: e.target.value })
-                }
-              />
-            </Field>
-            <Field
-              label="Allergies or exclusions"
-              hint="Included in meal AI requests when you consent. Always verify food ingredients yourself."
-            >
-              <textarea
-                value={value.allergies}
-                onChange={(e) =>
-                  setValue({ ...value, allergies: e.target.value })
-                }
-              />
-            </Field>
-            <h2>Daily targets</h2>
-            <p className="small muted">
-              Initial values are general placeholders, not a personalized
-              recommendation. No age, sex or activity assumptions are used. Set
-              appropriate targets yourself; wearable calories never change them.
-            </p>
-            <div className="form-grid">
-              {Object.entries(value.targets).map(([key, num]) => (
-                <Field
-                  key={key}
-                  label={`${key[0].toUpperCase() + key.slice(1)} (${key === "calories" ? "kcal" : key === "water" ? (imperial ? "US fl oz" : "ml") : "g"})`}
-                >
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={
-                      key === "water" && imperial
-                        ? Number((num / 29.5735295625).toFixed(2))
-                        : num
-                    }
-                    onChange={(e) =>
-                      setValue({
-                        ...value,
-                        targets: {
-                          ...value.targets,
-                          [key]:
-                            Number(e.target.value) *
-                            (key === "water" && imperial ? 29.5735295625 : 1),
-                        },
-                      })
-                    }
-                  />
-                </Field>
-              ))}
-            </div>
-            <Action
-              onClick={async () => {
-                await saveSettings(
-                  settingsSchema.parse({ ...value, onboarded: true }),
-                );
-                setNotice("Settings saved.");
-              }}
-            >
-              Save settings
-            </Action>
-            {notice && (
-              <p className="success" role="status">
-                {notice}
-              </p>
-            )}
-          </Card>
-          <Integration />
-        </div>
-        <aside>
-          <Card>
-            <ShieldCheck size={24} />
-            <h2>Your data belongs to you.</h2>
-            <p className="muted">
-              Export your records in JSON with documented dates and units.
-              Credentials, passwords, and session tokens are excluded.
-            </p>
-            {demo ? (
-              <Action
-                className="button secondary"
-                onClick={async () => {
-                  const blob = new Blob(
-                    [
-                      JSON.stringify(
-                        {
-                          label: "Demo — fictional sample data",
-                          settings,
-                          records: entries,
-                        },
-                        null,
-                        2,
-                      ),
-                    ],
-                    { type: "application/json" },
-                  );
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "fictional-demo-export.json";
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <Download size={16} /> Export demo
-              </Action>
-            ) : (
-              <a className="button secondary" href="/api/export" download>
-                <Download size={16} /> Export my data
-              </a>
-            )}
-            <Link className="text-button" to="/privacy">
-              Privacy & data handling
-            </Link>
-          </Card>
-          {demo ? (
-            <Card>
-              <h2>A clean slate</h2>
-              <p className="muted">
-                All demo changes are temporary and disappear on reload.
-              </p>
-              <button
-                className="button secondary"
-                onClick={() => {
-                  reset();
-                  setValue({ ...defaults, ...settings });
-                  setNotice("Demo reset.");
-                }}
-              >
-                Reset fictional demo
-              </button>
-            </Card>
-          ) : (
-            <Card>
-              <h2>Delete account</h2>
-              <p className="muted">
-                Permanently delete your active application records, encrypted
-                integration credentials, and sessions. Provider backups may
-                retain earlier database states for their retention period. This
-                cannot be undone in the app.
-              </p>
-              <Field label="Type DELETE MY ACCOUNT">
-                <input
-                  value={confirmation}
-                  onChange={(e) => setConfirmation(e.target.value)}
-                />
-              </Field>
-              {accountOptions?.password !== false ? (
-                <Field label="Confirm your password">
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </Field>
-              ) : (
-                <p className="small muted">
-                  For Google-only accounts, sign out and sign in with Google
-                  again before deleting. Confirmation must be within 5 minutes
-                  of sign-in.
-                </p>
+                  </div>
+                </>
               )}
               <Action
-                className="button danger"
-                disabled={
-                  confirmation !== "DELETE MY ACCOUNT" ||
-                  (accountOptions?.password !== false && !password)
-                }
                 onClick={async () => {
-                  if (
-                    !confirm(
-                      "Permanently delete your account and all active records?",
-                    )
-                  )
-                    return;
-                  await api("/account", {
-                    method: "DELETE",
-                    body: JSON.stringify({ confirmation, password }),
-                  });
-                  onDeleted();
+                  await saveSettings(
+                    settingsSchema.parse({ ...value, onboarded: true }),
+                  );
+                  setNotice("Settings saved.");
                 }}
               >
-                Delete my account
+                {onboarding
+                  ? "Save settings"
+                  : section === "profile"
+                    ? "Save profile"
+                    : "Save targets"}
               </Action>
+              {notice && (
+                <p className="success" role="status">
+                  {notice}
+                </p>
+              )}
             </Card>
           )}
-        </aside>
+          {showSettings && <Integration />}
+        </div>
+        {showSettings && (
+          <aside>
+            <Card>
+              <ShieldCheck size={24} />
+              <h2>Your data belongs to you.</h2>
+              <p className="muted">
+                Export your records in JSON with documented dates and units.
+                Credentials, passwords, and session tokens are excluded.
+              </p>
+              {demo ? (
+                <Action
+                  className="button secondary"
+                  onClick={async () => {
+                    const blob = new Blob(
+                      [
+                        JSON.stringify(
+                          {
+                            label: "Demo — fictional sample data",
+                            settings,
+                            records: entries,
+                          },
+                          null,
+                          2,
+                        ),
+                      ],
+                      { type: "application/json" },
+                    );
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "fictional-demo-export.json";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download size={16} /> Export demo
+                </Action>
+              ) : (
+                <a className="button secondary" href="/api/export" download>
+                  <Download size={16} /> Export my data
+                </a>
+              )}
+              <Link className="text-button" to="/privacy">
+                Privacy & data handling
+              </Link>
+            </Card>
+            {demo ? (
+              <Card>
+                <h2>A clean slate</h2>
+                <p className="muted">
+                  All demo changes are temporary and disappear on reload.
+                </p>
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    reset();
+                    setValue({ ...defaults, ...settings });
+                    setNotice("Demo reset.");
+                  }}
+                >
+                  Reset fictional demo
+                </button>
+              </Card>
+            ) : (
+              <Card>
+                <h2>Delete account</h2>
+                <p className="muted">
+                  Permanently delete your active application records, encrypted
+                  integration credentials, and sessions. Provider backups may
+                  retain earlier database states for their retention period.
+                  This cannot be undone in the app.
+                </p>
+                <Field label="Type DELETE MY ACCOUNT">
+                  <input
+                    value={confirmation}
+                    onChange={(e) => setConfirmation(e.target.value)}
+                  />
+                </Field>
+                {accountOptions?.password !== false ? (
+                  <Field label="Confirm your password">
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </Field>
+                ) : (
+                  <p className="small muted">
+                    For Google-only accounts, sign out and sign in with Google
+                    again before deleting. Confirmation must be within 5 minutes
+                    of sign-in.
+                  </p>
+                )}
+                <Action
+                  className="button danger"
+                  disabled={
+                    confirmation !== "DELETE MY ACCOUNT" ||
+                    (accountOptions?.password !== false && !password)
+                  }
+                  onClick={async () => {
+                    if (
+                      !confirm(
+                        "Permanently delete your account and all active records?",
+                      )
+                    )
+                      return;
+                    await api("/account", {
+                      method: "DELETE",
+                      body: JSON.stringify({ confirmation, password }),
+                    });
+                    onDeleted();
+                  }}
+                >
+                  Delete my account
+                </Action>
+              </Card>
+            )}
+          </aside>
+        )}
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Routes,
   Route,
@@ -82,6 +82,24 @@ export default function App() {
 function Shell({ onLogout }: { onLogout: () => void }) {
   const { demo, settings, loading, error, refresh, reset } = useData();
   const [menu, setMenu] = useState(false);
+  const accountRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (event: PointerEvent | KeyboardEvent) => {
+      const node = accountRef.current;
+      if (!node?.open) return;
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== "Escape") return;
+        node.querySelector("summary")?.focus();
+      } else if (node.contains(event.target as Node)) return;
+      node.open = false;
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, []);
   const [dark, setDark] = useState(
     localStorage.getItem("form-fuel-theme") === "dark",
   );
@@ -103,6 +121,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   }, []);
   useEffect(() => {
     setMenu(false);
+    if (accountRef.current) accountRef.current.open = false;
   }, [location.pathname]);
   return (
     <div className="app-shell">
@@ -168,7 +187,12 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 ([p]) =>
                   location.pathname === `${base}/${p}` ||
                   (!p && location.pathname === base),
-              )?.[1] || "Home"}
+              )?.[1] ||
+                (location.pathname.endsWith("/profile")
+                  ? "Profile"
+                  : location.pathname.endsWith("/targets")
+                    ? "Targets"
+                    : "Home")}
             </span>
           </div>
           <div className="topbar-actions">
@@ -196,14 +220,32 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 <LogOut size={18} />
               </button>
             )}
-            <Link
-              className="avatar"
-              to={`${base}/settings`}
-              aria-label="Profile and settings"
-              title="Profile and settings"
-            >
-              {settings.displayName[0]?.toUpperCase() || "F"}
-            </Link>
+            <details className="account-dropdown" ref={accountRef}>
+              <summary
+                className="avatar"
+                aria-label="Account options"
+                title="Account options"
+              >
+                {settings.displayName[0]?.toUpperCase() || "F"}
+              </summary>
+              <nav className="account-options" aria-label="Account options">
+                {[
+                  ["profile", "Profile"],
+                  ["targets", "Targets"],
+                  ["settings", "Settings"],
+                ].map(([path, label]) => (
+                  <Link
+                    key={path}
+                    to={`${base}/${path}`}
+                    onClick={() => {
+                      if (accountRef.current) accountRef.current.open = false;
+                    }}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </details>
           </div>
         </header>
         {demo && (
@@ -246,8 +288,28 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               <Route path={`${base}/health`} element={<Health />} />
               <Route path={`${base}/progress`} element={<Progress />} />
               <Route
+                path={`${base}/profile`}
+                element={
+                  <Settings
+                    key="profile"
+                    section="profile"
+                    onDeleted={onLogout}
+                  />
+                }
+              />
+              <Route
+                path={`${base}/targets`}
+                element={
+                  <Settings
+                    key="targets"
+                    section="targets"
+                    onDeleted={onLogout}
+                  />
+                }
+              />
+              <Route
                 path={`${base}/settings`}
-                element={<Settings onDeleted={onLogout} />}
+                element={<Settings key="settings" onDeleted={onLogout} />}
               />
               <Route path="*" element={<Navigate to={base || "/"} replace />} />
             </Routes>
