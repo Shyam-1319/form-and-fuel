@@ -2312,3 +2312,27 @@ table.workout-set-table {
     font-size: 11px;
   }
 }
+.profile-crop {
+  max-width: 360px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.profile-crop-preview {
+  display: block;
+  width: 200px;
+  height: 200px;
+  max-width: 100%;
+  border-radius: 50%;
+  margin: 16px auto;
+}
+.profile-crop .split {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.profile-crop input[type="range"] {
+  padding: 0;
+  width: 100%;
+  min-height: 44px;
+}
