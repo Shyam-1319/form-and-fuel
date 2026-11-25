@@ -34,7 +34,7 @@ export function Today() {
   const [historyMetric, setHistoryMetric] = useState<HistoryMetric | null>(
     null,
   );
-  const { settings, demo, save } = useData();
+  const { settings, demo, save, refreshWearable } = useData();
   const meals = useEntries("meal"),
     water = useEntries("water"),
     wellness = useEntries("wellness"),
@@ -51,17 +51,20 @@ export function Today() {
   const [syncNotice, setSyncNotice] = useState("");
   useEffect(() => {
     if (!demo)
-      void api("/sync", {
+      void api<{ records?: number }>("/sync", {
         method: "POST",
         body: JSON.stringify({ manual: false }),
       })
-        .then(() => setSyncNotice(""))
+        .then(async (result) => {
+          if (result.records !== undefined) await refreshWearable();
+          setSyncNotice("");
+        })
         .catch(() =>
           setSyncNotice(
             "Wearable refresh unavailable. Cached records are still shown.",
           ),
         );
-  }, [demo]);
+  }, [demo, refreshWearable]);
   const points = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(today, i - 6);
     const logged = meals.filter((e) => e.date === date);

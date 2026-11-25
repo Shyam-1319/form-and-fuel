@@ -48,6 +48,7 @@ type Store = {
   loading: boolean;
   error: string;
   refresh: () => Promise<void>;
+  refreshWearable: () => Promise<void>;
   save: <K extends EditableKind>(
     kind: K,
     date: string,
@@ -127,6 +128,25 @@ export function DataProvider({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  const refreshWearable = useCallback(async () => {
+    if (demo) return;
+    const kinds = ["wellness", "activity"] as const;
+    const pages = await Promise.all(
+      kinds.map((kind) =>
+        api<{ items: Entry[]; cursor: string | null }>(
+          `/records?kind=${kind}&limit=200`,
+        ),
+      ),
+    );
+    setEntries((all) => [
+      ...all.filter((e) => e.kind !== "wellness" && e.kind !== "activity"),
+      ...pages.flatMap((page) => page.items),
+    ]);
+    setCursors((all) => ({
+      ...all,
+      ...Object.fromEntries(kinds.map((kind, i) => [kind, pages[i].cursor])),
+    }));
+  }, [demo]);
   async function save<K extends EditableKind>(
     kind: K,
     date: string,
@@ -240,6 +260,7 @@ export function DataProvider({
         loading,
         error,
         refresh,
+        refreshWearable,
         save,
         remove,
         findMeals,
