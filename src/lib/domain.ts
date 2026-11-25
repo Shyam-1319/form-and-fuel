@@ -156,6 +156,11 @@ export const sessionSchema = z.object({
 });
 export const settingsSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
+  profilePhoto: z
+    .string()
+    .max(50000)
+    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/)
+    .optional(),
   timezone: z.string().refine((t) => {
     try {
       new Intl.DateTimeFormat("en", { timeZone: t });

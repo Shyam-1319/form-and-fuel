@@ -17,6 +17,7 @@ import { connect, sync, status } from "../server/intervals";
 import { quota } from "../server/db";
 import { HttpError, type Env } from "../server/types";
 import { readWorkbook, suggestMapping, mapWorkbook } from "../src/lib/importer";
+import { defaults, settingsSchema } from "../src/lib/domain";
 let mf: Miniflare, env: Env;
 const alice = { id: "alice", name: "Alice", email: "alice@example.test" },
   bob = { id: "bob", name: "Bob", email: "bob@example.test" };
@@ -1068,4 +1069,36 @@ it("runs signup, single-use verification, login, reset, logout and account delet
       )
     ).status,
   ).toBe(401);
+});
+
+it("keeps profile photos private, persists removal, and rejects remote or oversized photo values", async () => {
+  const profilePhoto = "data:image/jpeg;base64,/9j/2Q==";
+  const value = { ...defaults, displayName: "Alice", profilePhoto };
+  await handlePrivate(request("/api/settings", "PUT", value), env, alice);
+  expect(
+    await (await handlePrivate(request("/api/settings"), env, alice)).json(),
+  ).toMatchObject({ profilePhoto });
+  expect(
+    await (await handlePrivate(request("/api/settings"), env, bob)).json(),
+  ).not.toHaveProperty("profilePhoto");
+  await handlePrivate(
+    request("/api/settings", "PUT", { ...defaults, displayName: "Alice" }),
+    env,
+    alice,
+  );
+  expect(
+    await (await handlePrivate(request("/api/settings"), env, alice)).json(),
+  ).not.toHaveProperty("profilePhoto");
+  expect(
+    settingsSchema.safeParse({
+      ...value,
+      profilePhoto: "https://example.test/photo.jpg",
+    }).success,
+  ).toBe(false);
+  expect(
+    settingsSchema.safeParse({
+      ...value,
+      profilePhoto: "data:image/jpeg;base64," + "a".repeat(50000),
+    }).success,
+  ).toBe(false);
 });

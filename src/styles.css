@@ -410,6 +410,22 @@ input[type="file"] {
   border-radius: 50%;
   background: #7d9b60;
 }
+.avatar-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.profile-photo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+.profile-photo-editor {
+  margin-bottom: 20px;
+}
 .account-dropdown {
   position: relative;
 }

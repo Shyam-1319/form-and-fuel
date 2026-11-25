@@ -15,6 +15,12 @@ export function Privacy() {
       </p>
       <h2>Where it goes</h2>
       <p>
+        Your optional profile photo is resized before saving and stored with
+        your private profile in Cloudflare D1. It is included in your data
+        export and removed with your account. It is not sent to the food AI
+        provider. Remove it from Profile and save to delete the current photo.
+      </p>
+      <p>
         Cloudflare hosts the website, server functions and D1 database. Better
         Auth manages authentication in that database, including secure password
         hashes and expiring sessions. Resend receives your email address and

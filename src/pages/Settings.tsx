@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Link2, Download, ShieldCheck } from "lucide-react";
+import { ProfilePhoto } from "../components/ProfilePhoto";
 import { useData, api } from "../lib/store";
 import {
   settingsSchema,
@@ -74,6 +75,12 @@ export function Settings({
               {showProfile && (
                 <>
                   <h2>Your profile</h2>
+                  <ProfilePhoto
+                    image={value.profilePhoto}
+                    onChange={(profilePhoto) =>
+                      setValue((current) => ({ ...current, profilePhoto }))
+                    }
+                  />
                   <div className="form-grid">
                     <Field label="Display name">
                       <input

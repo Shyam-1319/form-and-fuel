@@ -226,7 +226,15 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 aria-label="Account options"
                 title="Account options"
               >
-                {settings.displayName[0]?.toUpperCase() || "F"}
+                {settings.profilePhoto ? (
+                  <img
+                    className="avatar-photo"
+                    src={settings.profilePhoto}
+                    alt="Your profile"
+                  />
+                ) : (
+                  settings.displayName[0]?.toUpperCase() || "F"
+                )}
               </summary>
               <nav className="account-options" aria-label="Account options">
                 {[
