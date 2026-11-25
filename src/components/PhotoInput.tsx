@@ -18,6 +18,7 @@ export function PhotoInput({
           type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
+          disabled={!available}
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -67,7 +68,7 @@ export function PhotoInput({
       <p className="small muted">
         <Camera size={13} />{" "}
         {available
-          ? "Photo is resized to 512 pixels and sent only when you request an estimate. It is never stored permanently."
+          ? "Photo is resized to 512 pixels and sent to Groq only after you consent and request an estimate. Form & Fuel does not save the photo. Add portion sizes or ingredients in the description for a better estimate."
           : "Photo analysis is unavailable until a compatible free-tier Groq model is verified and enabled. Remove the photo to use text analysis; manual entry always works."}
       </p>
       {error && (

@@ -11,7 +11,7 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readFile } from "node:fs/promises";
 import { handlePrivate, handleRequest } from "../server/app";
 import { createAuth } from "../server/auth";
-import { analyze } from "../server/ai";
+import { analyze, validateImage, GroqProvider } from "../server/ai";
 import { connect, sync, status } from "../server/intervals";
 import { quota } from "../server/db";
 import { HttpError, type Env } from "../server/types";
@@ -237,6 +237,7 @@ it("reports AI ready only with its flag, key and model, without exposing values"
       status: "ok",
       database: true,
       ai: ready,
+      photo: false,
       aiConfiguration: {
         enabled: configured.AI_ENABLED === "true",
         modelConfigured: !!configured.GROQ_MODEL,
@@ -446,6 +447,130 @@ it("deduplicates explicit saves and rejects stale edits", async () => {
       alice,
     ),
   ).rejects.toMatchObject({ status: 409 });
+});
+it("validates photo bounds, requires consent and previews without storing a meal or image", async () => {
+  const image =
+    "data:image/jpeg;base64," +
+    btoa(
+      String.fromCharCode(
+        255,
+        216,
+        255,
+        192,
+        0,
+        17,
+        8,
+        0,
+        1,
+        0,
+        1,
+        3,
+        1,
+        17,
+        0,
+        2,
+        17,
+        0,
+        3,
+        17,
+        0,
+      ),
+    );
+  expect(() => validateImage(image)).not.toThrow();
+  const huge =
+    "data:image/jpeg;base64," +
+    btoa(
+      String.fromCharCode(
+        255,
+        216,
+        255,
+        192,
+        0,
+        17,
+        8,
+        2,
+        1,
+        0,
+        1,
+        3,
+        1,
+        17,
+        0,
+        2,
+        17,
+        0,
+        3,
+        17,
+        0,
+      ),
+    );
+  expect(() => validateImage(huge)).toThrow("512");
+  const aiEnv = {
+    ...env,
+    AI_ENABLED: "true",
+    AI_VISION_ENABLED: "true",
+    GROQ_API_KEY: "synthetic",
+    GROQ_MODEL: "qwen/qwen3.8-27b",
+  };
+  const input = {
+    requestId: crypto.randomUUID(),
+    kind: "meal",
+    image,
+    consent: true,
+  };
+  const provider = {
+    complete: vi.fn(async () => ({
+      foods: meal.foods,
+      assumptions: "Visible food; assumed portion",
+      uncertainty: "Photo estimate",
+    })),
+  };
+  await expect(
+    analyze(
+      { ...aiEnv, AI_VISION_ENABLED: "false" },
+      alice.id,
+      input,
+      provider,
+    ),
+  ).rejects.toMatchObject({ status: 503 });
+  await expect(
+    analyze(aiEnv, alice.id, { ...input, consent: false }, provider),
+  ).rejects.toThrow();
+  const result = await analyze(aiEnv, alice.id, input, provider);
+  expect(result).toHaveProperty("foods", meal.foods);
+  expect(provider.complete).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.any(String),
+    expect.any(Object),
+    image,
+  );
+  expect(
+    await env.DB.prepare("SELECT COUNT(*) AS n FROM records").first("n"),
+  ).toBe(0);
+  const complete = vi.fn(async () =>
+    Response.json({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              foods: meal.foods,
+              assumptions: "Estimate",
+              uncertainty: "Uncertain",
+            }),
+          },
+        },
+      ],
+    }),
+  );
+  vi.stubGlobal("fetch", complete);
+  await new GroqProvider(aiEnv).complete("Estimate", "Synthetic", {}, image);
+  const init = complete.mock.calls[0] as unknown as [string, RequestInit];
+  const sent = JSON.parse(init[1].body as string);
+  expect(sent.model).toBe("qwen/qwen3.8-27b");
+  expect(sent.messages[1].content[1]).toEqual({
+    type: "image_url",
+    image_url: { url: image },
+  });
 });
 it("AI preview creates no meal and validates estimates; unavailable AI leaves manual logging working", async () => {
   await expect(

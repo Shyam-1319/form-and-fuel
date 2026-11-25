@@ -10,6 +10,8 @@ for (const path of ["/", "/demo", "/demo/workouts", "/api/health"]) {
       throw new Error("Database health check failed");
     if (config.vars.AI_ENABLED === "true" && result.ai !== true)
       throw new Error("Production AI configuration check failed");
+    if (config.vars.AI_VISION_ENABLED === "true" && result.photo !== true)
+      throw new Error("Production photo configuration check failed");
   } else if (!(await response.text()).includes('id="root"'))
     throw new Error(`${path}: app shell missing`);
   console.log(`${path}: passed`);

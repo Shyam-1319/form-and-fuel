@@ -386,6 +386,7 @@ export async function handleRequest(
             status: result ? "ok" : "unavailable",
             database: !!result,
             ai: isAiConfigured(env),
+            photo: isAiConfigured(env) && env.AI_VISION_ENABLED === "true",
             aiConfiguration: {
               enabled: env.AI_ENABLED === "true",
               modelConfigured: !!env.GROQ_MODEL,

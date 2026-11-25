@@ -204,7 +204,9 @@ export function FoodEditor() {
               />
               {demo
                 ? "Use simulated AI in this fictional demo"
-                : "Send this description, dietary preferences and allergies to Groq for an estimate"}
+                : image
+                  ? "Send this photo, description, dietary preferences and allergies to Groq for an estimate"
+                  : "Send this description, dietary preferences and allergies to Groq for an estimate"}
             </label>
             <Action
               disabled={
@@ -225,6 +227,7 @@ export function FoodEditor() {
               image={image}
               onChange={(value) => {
                 setImage(value);
+                setConsent(false);
                 setAiId(crypto.randomUUID());
               }}
               available={photoEnabled}
