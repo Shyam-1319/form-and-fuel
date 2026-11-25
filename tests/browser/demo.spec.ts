@@ -188,10 +188,12 @@ test("all direct routes load and dark mode works", async ({ page }) => {
   await page.getByRole("button", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.goto("/demo");
+  await page.getByLabel("Account options", { exact: true }).first().click();
   await page
-    .getByRole("link", { name: "Profile and settings", exact: true })
+    .getByRole("navigation", { name: "Account options" })
+    .getByRole("link", { name: "Profile", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/demo\/settings$/);
+  await expect(page).toHaveURL(/\/demo\/profile$/);
   await expect(
     page.getByRole("heading", { name: "Your profile", exact: true }),
   ).toBeVisible();
