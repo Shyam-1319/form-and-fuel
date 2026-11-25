@@ -183,11 +183,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             >
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            {demo ? (
-              <Link className="avatar" to="/" title="Sign in">
-                A
-              </Link>
-            ) : (
+            {!demo && (
               <button
                 className="icon-button"
                 aria-label="Sign out"
@@ -200,9 +196,14 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 <LogOut size={18} />
               </button>
             )}
-            <span className="avatar">
+            <Link
+              className="avatar"
+              to={`${base}/settings`}
+              aria-label="Profile and settings"
+              title="Profile and settings"
+            >
               {settings.displayName[0]?.toUpperCase() || "F"}
-            </span>
+            </Link>
           </div>
         </header>
         {demo && (

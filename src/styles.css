@@ -424,7 +424,9 @@ input[type="file"] {
   text-decoration: none;
 }
 .topbar-actions > a.avatar {
-  display: none;
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
 }
 .main-content {
   max-width: 1500px;
