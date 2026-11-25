@@ -94,6 +94,12 @@ export async function handlePrivate(
     );
     if (!Number.isInteger(limit)) throw new HttpError(400, "Invalid page size");
     const cursor = url.searchParams.get("cursor");
+    const query = z
+      .string()
+      .max(160)
+      .parse(url.searchParams.get("q") || "")
+      .trim()
+      .toLowerCase();
     let cursorDate = "9999-12-31",
       cursorId = "~";
     if (cursor) {
@@ -102,7 +108,7 @@ export async function handlePrivate(
       cursorId = z.string().uuid().parse(parts[1]);
     }
     const rows = await env.DB.prepare(
-      "SELECT id,kind,date,data,created_at,updated_at FROM records WHERE user_id=? AND kind=? AND date BETWEEN ? AND ? AND (date < ? OR (date=? AND id<?)) ORDER BY date DESC,id DESC LIMIT ?",
+      "SELECT id,kind,date,data,created_at,updated_at FROM records WHERE user_id=? AND kind=? AND date BETWEEN ? AND ? AND (date < ? OR (date=? AND id<?)) AND (?='' OR instr(lower(COALESCE(json_extract(data,'$.title'),'') || ' ' || COALESCE(json_extract(data,'$.notes'),'') || ' ' || COALESCE((SELECT group_concat(json_extract(value,'$.name'),' ') FROM json_each(records.data,'$.foods')),'')),?)>0) ORDER BY date DESC,id DESC LIMIT ?",
     )
       .bind(
         user.id,
@@ -112,6 +118,8 @@ export async function handlePrivate(
         cursorDate,
         cursorDate,
         cursorId,
+        query,
+        query,
         limit + 1,
       )
       .all<Row>();

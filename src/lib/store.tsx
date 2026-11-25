@@ -56,6 +56,12 @@ type Store = {
     requestId?: string,
   ) => Promise<Entry>;
   remove: (id: string) => Promise<void>;
+  findMeals: (
+    query: string,
+    from: string,
+    to: string,
+    cursor?: string,
+  ) => Promise<{ items: Entry<"meal">[]; cursor: string | null }>;
   copyMeals: (
     date: string,
     meals: DataByKind["meal"][],
@@ -156,6 +162,28 @@ export function DataProvider({
     if (!demo) await api(`/records/${id}`, { method: "DELETE" });
     setEntries((all) => all.filter((e) => e.id !== id));
   }
+  const findMeals = useCallback(
+    async (query: string, from: string, to: string, cursor?: string) => {
+      const params = new URLSearchParams({
+        kind: "meal",
+        q: query,
+        from: from || "1900-01-01",
+        to: to || "9999-12-31",
+        limit: "50",
+      });
+      if (cursor) params.set("cursor", cursor);
+      const result = await api<{
+        items: Entry<"meal">[];
+        cursor: string | null;
+      }>(`/records?${params}`);
+      setEntries((all) => [
+        ...all.filter((e) => !result.items.some((item) => item.id === e.id)),
+        ...result.items,
+      ]);
+      return result;
+    },
+    [],
+  );
   async function copyMeals(
     date: string,
     meals: DataByKind["meal"][],
@@ -214,6 +242,7 @@ export function DataProvider({
         refresh,
         save,
         remove,
+        findMeals,
         copyMeals,
         saveSettings,
         loadMore,

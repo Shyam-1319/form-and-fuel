@@ -375,6 +375,48 @@ it("copies meal previews atomically, preserves originals and deduplicates retrie
   expect(bobResult.items).toHaveLength(2);
   expect(bobResult.items[0].id).not.toBe(first.items[0].id);
 });
+it("searches old meals by title ingredients and notes with private paginated results", async () => {
+  for (const [user, title] of [
+    [alice, "Old oats"],
+    [alice, "Other meal"],
+    [bob, "Private oats"],
+  ] as const) {
+    await handlePrivate(
+      request("/api/records", "POST", {
+        kind: "meal",
+        date: "2001-01-01",
+        data: { ...meal, title, notes: "cinnamon" },
+        requestId: crypto.randomUUID(),
+      }),
+      env,
+      user,
+    );
+  }
+  const search = async (q: string, cursor = "") =>
+    (
+      await handlePrivate(
+        request(
+          `/api/records?kind=meal&q=${encodeURIComponent(q)}&limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        ),
+        env,
+        alice,
+      )
+    ).json() as Promise<{
+      items: { data: { title: string } }[];
+      cursor: string | null;
+    }>;
+  const first = await search("OATS");
+  expect(first.items).toHaveLength(1);
+  const second = await search("OATS", first.cursor!);
+  expect(second.items).toHaveLength(1);
+  expect(
+    [...first.items, ...second.items].some(
+      (e) => e.data.title === "Private oats",
+    ),
+  ).toBe(false);
+  expect((await search("cinnamon")).items).toHaveLength(1);
+  expect((await search("%_'")).items).toHaveLength(0);
+});
 it("deduplicates explicit saves and rejects stale edits", async () => {
   const body = {
     kind: "meal",

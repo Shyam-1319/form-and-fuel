@@ -504,7 +504,7 @@ export function FoodEditor() {
 export function FoodHistory() {
   const [copyDay, setCopyDay] = useState(false);
   const [copyNotice, setCopyNotice] = useState("");
-  const { remove, save, loadMore, hasMore } = useData();
+  const { remove, save, loadMore, hasMore, demo, findMeals } = useData();
   const meals = useEntries("meal"),
     recipes = useEntries("recipe");
   const base = useLocation().pathname.startsWith("/demo") ? "/demo" : "";
@@ -512,8 +512,48 @@ export function FoodHistory() {
   const [templates, setTemplates] = useState(params.has("recipes"));
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState<{
+    key: string;
+    ids: string[];
+    cursor: string | null;
+  } | null>(null);
+  const [searchError, setSearchError] = useState("");
+  const searchKey = JSON.stringify([query.trim(), from, to]);
+  useEffect(() => {
+    let active = true;
+    setSearchError("");
+    if (demo || !query.trim()) return;
+    const timer = setTimeout(() => {
+      void findMeals(query.trim(), from, to)
+        .then((result) => {
+          if (active)
+            setSearch({
+              key: searchKey,
+              ids: result.items.map((e) => e.id),
+              cursor: result.cursor,
+            });
+        })
+        .catch((e) => {
+          if (active) setSearchError(e.message);
+        });
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [demo, query, from, to, searchKey, findMeals]);
+  const searching = !!query.trim() && !demo;
   const selected = meals.filter(
-    (e) => (!from || e.date >= from) && (!to || e.date <= to),
+    (e) =>
+      (!from || e.date >= from) &&
+      (!to || e.date <= to) &&
+      (searching
+        ? search?.key === searchKey && search.ids.includes(e.id)
+        : !query.trim() ||
+          `${e.data.title} ${e.data.notes} ${e.data.foods.map((f) => f.name).join(" ")}`
+            .toLowerCase()
+            .includes(query.trim().toLowerCase())),
   );
   const dates = [...new Set(selected.map((e) => e.date))];
   return (
@@ -570,6 +610,15 @@ export function FoodHistory() {
         </div>
         {!templates && (
           <>
+            <Field label="Search food history">
+              <input
+                type="search"
+                maxLength={160}
+                placeholder="Meal, ingredient or notes"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </Field>
             <Field label="From">
               <input
                 type="date"
@@ -587,6 +636,12 @@ export function FoodHistory() {
           </>
         )}
       </div>
+      {!templates && searchError && (
+        <p role="alert">Could not search meals: {searchError}</p>
+      )}
+      {!templates && searching && search?.key !== searchKey && !searchError && (
+        <p role="status">Searching your meal history…</p>
+      )}
       {templates ? (
         <div className="two-column">
           {recipes.map((r) => (
@@ -719,13 +774,45 @@ export function FoodHistory() {
               </Card>
             );
           })}
-          {!dates.length && (
-            <Empty>
-              No meals recorded in this range. Missing days are unknown, not
-              zero consumption.
-            </Empty>
+          {!dates.length &&
+            (!searching || search?.key === searchKey) &&
+            !searchError && (
+              <Empty>
+                {query.trim()
+                  ? "No matching meals found."
+                  : "No meals recorded in this range."}{" "}
+                Missing days are unknown, not zero consumption.
+              </Empty>
+            )}
+          {searching && search?.key === searchKey && search.cursor && (
+            <Action
+              onClick={async () => {
+                const result = await findMeals(
+                  query.trim(),
+                  from,
+                  to,
+                  search.cursor!,
+                );
+                setSearch((current) =>
+                  current?.key === searchKey
+                    ? {
+                        ...current,
+                        ids: [
+                          ...new Set([
+                            ...current.ids,
+                            ...result.items.map((e) => e.id),
+                          ]),
+                        ],
+                        cursor: result.cursor,
+                      }
+                    : current,
+                );
+              }}
+            >
+              Load more search results
+            </Action>
           )}
-          {hasMore("meal") && (
+          {!searching && hasMore("meal") && (
             <Action onClick={() => loadMore("meal")}>Load earlier meals</Action>
           )}
           <p className="small muted">
