@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useData, api } from "../lib/store";
 import { addDays, dayInZone, daySchema } from "../lib/domain";
-import { demoAggregate, type Aggregate } from "../pages/Progress";
+import { demoAggregate, type Aggregate } from "../lib/progress";
 import { Chart, Field, Modal, fmt } from "./ui";
 
 export const historyMetrics = {
