@@ -2,7 +2,12 @@ import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 test.use({
-  launchOptions: { args: ["--use-fake-device-for-media-stream"] },
+  launchOptions: {
+    args: [
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+    ],
+  },
   permissions: ["camera"],
 });
 
