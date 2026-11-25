@@ -117,7 +117,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           form<span className="brand-amp">&</span>fuel
         </Link>
         <p className="sidebar-label">YOUR DAILY PRACTICE</p>
-        <nav aria-label="Main navigation">
+        <nav id="main-navigation" aria-label="Main navigation">
           {navigation.map(([path, label, Icon]) => (
             <NavLink
               key={path}
@@ -156,6 +156,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             <button
               className="icon-button mobile-menu"
               aria-label={menu ? "Close navigation" : "Open navigation"}
+              aria-expanded={menu}
+              aria-controls="main-navigation"
               onClick={() => setMenu(!menu)}
             >
               {menu ? <X /> : <Menu />}
