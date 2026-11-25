@@ -1113,12 +1113,31 @@ progress::-webkit-progress-value {
   min-width: 0;
 }
 @media (max-width: 600px) {
-  .button, .icon-button, .text-button, .segmented button { min-height: 44px; }
-  .icon-button { min-width: 44px; }
-  input, select, textarea, .workout-set-table input { font-size: 16px; min-height: 44px; }
-  .toolbar .field { max-width: 100%; }
-  .page-heading > .split { flex-wrap: wrap; }
-  .modal { scroll-padding-block: 20px; }
+  .button,
+  .icon-button,
+  .text-button,
+  .segmented button {
+    min-height: 44px;
+  }
+  .icon-button {
+    min-width: 44px;
+  }
+  input,
+  select,
+  textarea,
+  .workout-set-table input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .toolbar .field {
+    max-width: 100%;
+  }
+  .page-heading > .split {
+    flex-wrap: wrap;
+  }
+  .modal {
+    scroll-padding-block: 20px;
+  }
 }
 .exercise-progress-stats {
   display: grid;
@@ -2008,6 +2027,21 @@ details p {
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+.meal-camera {
+  border: 1px solid var(--line);
+  padding: 16px;
+  border-radius: 12px;
+  margin-block: 12px;
+}
+.meal-camera video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #18221e;
 }
 .photo-preview {
   position: relative;

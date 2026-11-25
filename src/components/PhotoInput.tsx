@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Camera, X } from "lucide-react";
 import { Field } from "./ui";
+import { MealCamera, mealPhoto } from "./MealCamera";
 export function PhotoInput({
   image,
   onChange,
@@ -11,14 +12,36 @@ export function PhotoInput({
   available: boolean;
 }) {
   const [error, setError] = useState("");
+  const [camera, setCamera] = useState(false);
   return (
     <div className="photo-input">
+      {available && !camera && (
+        <button
+          className="button secondary"
+          onClick={() => {
+            setError("");
+            setCamera(true);
+          }}
+        >
+          <Camera size={17} />
+          Open camera
+        </button>
+      )}
+      {camera && available && (
+        <MealCamera
+          onClose={() => setCamera(false)}
+          onCapture={(value) => {
+            onChange(value);
+            setCamera(false);
+          }}
+        />
+      )}
       <Field label="Meal photo (optional)">
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
-          disabled={!available}
+          disabled={!available || camera}
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -34,18 +57,11 @@ export function PhotoInput({
                 bitmap.close();
                 throw new Error("Photo exceeds 33 megapixels.");
               }
-              const ratio = Math.min(
-                1,
-                512 / Math.max(bitmap.width, bitmap.height),
-              );
-              const canvas = document.createElement("canvas");
-              canvas.width = Math.max(1, Math.round(bitmap.width * ratio));
-              canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
-              canvas
-                .getContext("2d")!
-                .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-              bitmap.close();
-              onChange(canvas.toDataURL("image/jpeg", 0.8));
+              try {
+                onChange(mealPhoto(bitmap, bitmap.width, bitmap.height));
+              } finally {
+                bitmap.close();
+              }
             } catch (err) {
               setError((err as Error).message);
             }

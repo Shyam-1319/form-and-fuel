@@ -196,6 +196,15 @@ export function FoodEditor() {
                 maxLength={3000}
               />
             </Field>
+            <PhotoInput
+              image={image}
+              onChange={(value) => {
+                setImage(value);
+                setConsent(false);
+                setAiId(crypto.randomUUID());
+              }}
+              available={photoEnabled}
+            />
             <label className="check">
               <input
                 type="checkbox"
@@ -223,15 +232,6 @@ export function FoodEditor() {
               cannot guarantee allergen safety. Nothing is saved until you
               confirm below.
             </p>
-            <PhotoInput
-              image={image}
-              onChange={(value) => {
-                setImage(value);
-                setConsent(false);
-                setAiId(crypto.randomUUID());
-              }}
-              available={photoEnabled}
-            />
           </Card>
           <Card>
             <h2>{edit ? "Meal details" : "Review & make it yours"}</h2>
