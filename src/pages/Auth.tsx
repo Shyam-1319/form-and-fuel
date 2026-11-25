@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Leaf } from "lucide-react";
 import { api } from "../lib/store";
@@ -11,6 +11,16 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
+  const [options, setOptions] = useState<{
+    google: boolean;
+    emailSignup: boolean;
+  } | null>(null);
+  useEffect(() => {
+    void api<{ google: boolean; emailSignup: boolean }>("/auth-options")
+      .then(setOptions)
+      .catch(() => setOptions(null));
+  }, []);
+  const googleError = new URLSearchParams(window.location.search).get("error");
   async function submit() {
     setMessage("");
     if (mode === "login") {
@@ -101,6 +111,46 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
               ? "Create your account. Email verification is required."
               : "Use the single-use code sent to your email."}
         </p>
+        {googleError && (
+          <p role="alert" className="error">
+            Google sign-in could not be completed. Please try again or use your
+            existing email login.
+          </p>
+        )}
+        {(mode === "login" || mode === "signup") && options?.google && (
+          <>
+            <Action
+              className="button secondary full"
+              onClick={async () => {
+                const result = await api<{ url: string }>(
+                  "/auth/sign-in/social",
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ provider: "google" }),
+                  },
+                );
+                const destination = new URL(result.url);
+                if (destination.origin !== "https://accounts.google.com")
+                  throw new Error("Unexpected sign-in destination");
+                window.location.assign(destination.href);
+              }}
+            >
+              Continue with Google
+            </Action>
+            <p className="small muted">
+              Use your own Google account. Your journal stays private to you.
+            </p>
+            <hr />
+          </>
+        )}
+        {mode === "signup" && options?.emailSignup === false && (
+          <p className="notice">
+            Email registration is currently restricted to the app owner.{" "}
+            {options.google
+              ? "Use Continue with Google to create your own account."
+              : "Public signup will be available when Google sign-in is configured."}
+          </p>
+        )}
         {mode === "signup" && (
           <Field label="Display name">
             <input

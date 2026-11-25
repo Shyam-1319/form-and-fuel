@@ -24,3 +24,9 @@ const sessionResponse = await fetch(base + "/api/auth/get-session");
 if (sessionResponse.status !== 200 || (await sessionResponse.json()) !== null)
   throw new Error("Anonymous session check failed");
 console.log("Authentication configured; anonymous session is null: passed");
+const authOptionsResponse = await fetch(base + "/api/auth-options");
+if (!authOptionsResponse.ok) throw new Error("Authentication options check failed");
+const authOptions = await authOptionsResponse.json();
+if(typeof authOptions.google !== "boolean" || typeof authOptions.emailSignup !== "boolean")
+  throw new Error("Unexpected authentication options");
+console.log(`Google sign-in configured: ${authOptions.google ? "yes" : "no"}`);

@@ -32,6 +32,15 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
   const [notice, setNotice] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [password, setPassword] = useState("");
+  const [accountOptions, setAccountOptions] = useState<{
+    password: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (!demo)
+      void api<{ password: boolean }>("/account-options")
+        .then(setAccountOptions)
+        .catch(() => setAccountOptions(null));
+  }, [demo]);
   const imperial = value.units === "imperial";
   return (
     <>
@@ -309,17 +318,28 @@ export function Settings({ onDeleted }: { onDeleted: () => void }) {
                   onChange={(e) => setConfirmation(e.target.value)}
                 />
               </Field>
-              <Field label="Confirm your password">
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </Field>
+              {accountOptions?.password !== false ? (
+                <Field label="Confirm your password">
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </Field>
+              ) : (
+                <p className="small muted">
+                  For Google-only accounts, sign out and sign in with Google
+                  again before deleting. Confirmation must be within 5 minutes
+                  of sign-in.
+                </p>
+              )}
               <Action
                 className="button danger"
-                disabled={confirmation !== "DELETE MY ACCOUNT" || !password}
+                disabled={
+                  confirmation !== "DELETE MY ACCOUNT" ||
+                  (accountOptions?.password !== false && !password)
+                }
                 onClick={async () => {
                   if (
                     !confirm(

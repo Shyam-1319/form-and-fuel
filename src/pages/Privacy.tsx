@@ -55,6 +55,13 @@ export function Privacy() {
       </p>
       <h2>Browser storage and the demo</h2>
       <p>
+        When you choose Google sign-in, Google shares your basic profile and
+        verified email address to identify your account. Meal, workout and
+        health records remain in the application database. Google OAuth tokens
+        stored by the app are encrypted. The Android app opens this same service
+        using a supported browser.
+      </p>
+      <p>
         The browser stores a session cookie and your theme preference. The
         service worker caches only public static application assets, never API
         responses. Private records stay in application memory and clear on

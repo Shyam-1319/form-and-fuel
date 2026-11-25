@@ -4,6 +4,8 @@ export type Env = {
   BETTER_AUTH_SECRET: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   GROQ_API_KEY?: string;
   GROQ_MODEL?: string;
   AI_ENABLED?: string;

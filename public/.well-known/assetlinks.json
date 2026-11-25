@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.pages.form_and_fuel_shyam.twa",
+      "sha256_cert_fingerprints": [
+        "05:E4:E5:23:A8:C2:F4:30:3C:4B:45:02:B9:47:7B:30:26:B0:C3:48:D4:D0:39:85:D1:BA:BE:3B:76:9F:AF:86"
+      ]
+    }
+  }
+]

@@ -4,6 +4,9 @@ import { emailOTP } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./auth-schema";
 import type { Env } from "./types";
+export function googleConfigured(env: Env) {
+  return !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
+}
 export function createAuth(env: Env) {
   return betterAuth({
     appName: "Form & Fuel",
@@ -15,6 +18,20 @@ export function createAuth(env: Env) {
       transaction: false,
     }),
     trustedOrigins: [env.APP_URL],
+    onAPIError: { errorURL: env.APP_URL + "/?error=google_signin" },
+    socialProviders: googleConfigured(env)
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID!,
+            clientSecret: env.GOOGLE_CLIENT_SECRET!,
+            accessType: "online",
+            prompt: "select_account",
+            includeGrantedScopes: false,
+            requireEmailVerification: true,
+          },
+        }
+      : {},
+    account: { encryptOAuthTokens: true },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,

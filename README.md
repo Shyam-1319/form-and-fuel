@@ -139,6 +139,22 @@ Integration tests use Miniflare’s isolated D1 runtime and mocked external prov
 
 ## Deploy and update
 
+### Google sign-in
+
+Create a Google OAuth **Web application** client for the production site. Use JavaScript origin `https://form-and-fuel-shyam.pages.dev` and redirect URI `https://form-and-fuel-shyam.pages.dev/api/auth/callback/google`. Save `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Cloudflare Pages **Production secrets**, then redeploy. Only `openid`, `email` and `profile` are requested. Google sign-in remains hidden until both settings exist. `/api/auth-options` reports configuration booleans without revealing credentials.
+
+Google Auth Platform's Testing audience admits only configured test users. Test the owner account first, then configure the production audience for the intended users before sharing. Google may require additional branding/domain verification for published branding; follow the requirements shown in the console. Never add Gmail or Drive permissions for basic sign-in.
+
+Google-verified accounts do not need Resend signup OTPs. Existing verified accounts can use the same email with Google while keeping their user ID and records. Unverified local accounts are not implicitly linked. OAuth uses state, PKCE, restricted callback routes and encrypted stored tokens. Google-only account deletion requires a sign-in within five minutes; password accounts still require password confirmation. Resend's `resend.dev` sender remains owner-only for email/password registration and password-reset delivery.
+
+### Android APK
+
+`android/` is the Bubblewrap-generated Android Trusted Web Activity project for the existing Pages site. It uses a supported Android browser, not an embedded login WebView. The app contains no Cloudflare, Resend, Groq or Google client secrets. Website updates are served from the same backend; an internet connection is required for private records and AI.
+
+Use Java 17 and Android SDK platform/build tools 36. `android/local.properties` points to the local SDK and is ignored. With `JAVA_HOME`, `ANDROID_SDK_ROOT` and a private signing configuration available, run `node scripts/build-android.mjs`. It builds, aligns, signs and verifies `artifacts/releases/Form-and-Fuel-1.0.0.apk`. The `public/.well-known/assetlinks.json` certificate fingerprint must match that APK's signing certificate and be deployed for full-screen website verification.
+
+Back up `artifacts/private/android/` privately: it holds the release keystore and signing configuration. Never upload that folder to source control or distribute it with the APK. Future APK updates must retain the same package ID/signing key and increment the version code. Building and signature verification do not replace a physical-phone installation and login test.
+
 ```sh
 npm run check
 npm run deploy

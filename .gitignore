@@ -16,3 +16,12 @@ playwright-report/
 artifacts/private/
 wrangler.local.json
 .production-setup-result.json
+*.keystore
+*.jks
+android/.gradle/
+android/**/build/
+android/local.properties
+android/signing.properties
+*.apk
+*.aab
+*.idsig

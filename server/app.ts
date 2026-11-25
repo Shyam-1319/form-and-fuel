@@ -1,7 +1,7 @@
 import { exportData } from "./export";
 import { z, ZodError } from "zod";
 import { verifyPassword } from "better-auth/crypto";
-import { createAuth } from "./auth";
+import { createAuth, googleConfigured } from "./auth";
 import { json, readJson, HttpError, type Env } from "./types";
 import {
   editableSchemas,
@@ -320,11 +320,19 @@ export async function handlePrivate(
     return json(await analyze(env, user.id, await readJson(request, 600000)));
   if (path === "/api/export" && method === "GET")
     return exportData(env, user.id);
+  if (path === "/api/account-options" && method === "GET") {
+    const account = await env.DB.prepare(
+      "SELECT password FROM account WHERE userId=? AND providerId='credential'",
+    )
+      .bind(user.id)
+      .first<{ password: string | null }>();
+    return json({ password: !!account?.password });
+  }
   if (path === "/api/account" && method === "DELETE") {
     const input = z
       .object({
         confirmation: z.literal("DELETE MY ACCOUNT"),
-        password: z.string().max(128),
+        password: z.string().max(128).optional(),
       })
       .parse(await readJson(request));
     const account = await env.DB.prepare(
@@ -332,14 +340,34 @@ export async function handlePrivate(
     )
       .bind(user.id)
       .first<{ password: string }>();
-    if (
-      !account?.password ||
-      !(await verifyPassword({
-        hash: account.password,
-        password: input.password,
-      }))
-    )
-      throw new HttpError(403, "Password confirmation failed");
+    if (account?.password) {
+      if (
+        !input.password ||
+        !(await verifyPassword({
+          hash: account.password,
+          password: input.password,
+        }))
+      )
+        throw new HttpError(403, "Password confirmation failed");
+    } else {
+      const session = await createAuth(env).api.getSession({
+        headers: request.headers,
+      });
+      const google = await env.DB.prepare(
+        "SELECT id FROM account WHERE userId=? AND providerId='google'",
+      )
+        .bind(user.id)
+        .first();
+      if (
+        !google ||
+        session?.user.id !== user.id ||
+        Date.now() - new Date(session.session.createdAt).getTime() > 300000
+      )
+        throw new HttpError(
+          403,
+          "Sign out and sign in with Google again, then retry deletion within 5 minutes.",
+        );
+    }
     await env.DB.batch([
       env.DB.prepare(
         "DELETE FROM verification WHERE identifier=? OR identifier=? OR identifier=?",
@@ -373,6 +401,11 @@ export async function handleRequest(
   try {
     const url = new URL(request.url);
     const path = url.pathname;
+    if (path === "/api/auth-options" && request.method === "GET")
+      return json({
+        google: googleConfigured(env),
+        emailSignup: !env.EMAIL_FROM.includes("resend.dev"),
+      });
     if (path === "/api/health" && request.method === "GET") {
       try {
         const result = await env.DB.prepare(
@@ -408,7 +441,7 @@ export async function handleRequest(
       throw new HttpError(503, "Authentication is not configured");
     const auth = createAuth(env);
     if (path.startsWith("/api/auth/")) {
-      // Only the documented password + OTP flows are exposed, avoiding unused sign-in variants.
+      // Expose only supported password, OTP and Google redirect flows.
       const routes = [
         "/sign-up/email",
         "/sign-in/email",
@@ -418,12 +451,37 @@ export async function handleRequest(
         "/email-otp/verify-email",
         "/email-otp/request-password-reset",
         "/email-otp/reset-password",
+        "/sign-in/social",
+        "/callback/google",
       ];
       if (!routes.includes(path.slice(9)))
         throw new HttpError(404, "Endpoint not found");
       if (path.includes("sign-up") && !env.RESEND_API_KEY)
         throw new HttpError(503, "Registration awaits email configuration");
-      const response = await auth.handler(request);
+      let authRequest = request;
+      if (path.endsWith("/sign-in/social")) {
+        if (request.method !== "POST") throw new HttpError(405, "Use POST");
+        if (!googleConfigured(env))
+          throw new HttpError(503, "Google sign-in is not configured yet");
+        z.object({ provider: z.literal("google") })
+          .strict()
+          .parse(await readJson(request, 4096));
+        const authHeaders = new Headers(request.headers);
+        authHeaders.delete("content-length");
+        authRequest = new Request(request.url, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            provider: "google",
+            disableRedirect: true,
+            callbackURL: env.APP_URL,
+            errorCallbackURL: env.APP_URL + "/?error=google_signin",
+          }),
+        });
+      }
+      if (path.endsWith("/callback/google") && request.method !== "GET")
+        throw new HttpError(405, "Use GET");
+      const response = await auth.handler(authRequest);
       const headers = new Headers(response.headers);
       headers.set("Cache-Control", "no-store");
       // Generic signup response avoids confirming whether an email is registered.

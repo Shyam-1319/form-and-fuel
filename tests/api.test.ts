@@ -9,6 +9,7 @@ import {
 } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readFile } from "node:fs/promises";
+import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import { handlePrivate, handleRequest } from "../server/app";
 import { createAuth } from "../server/auth";
 import { analyze, validateImage, GroqProvider } from "../server/ai";
@@ -109,6 +110,207 @@ beforeEach(async () => {
       .run();
 });
 afterEach(() => vi.unstubAllGlobals());
+it("offers only configured Google sign-in, binds state and requests basic profile scopes", async () => {
+  const configured = {
+    ...env,
+    GOOGLE_CLIENT_ID: "synthetic-client.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET: "synthetic-secret",
+  };
+  expect(
+    await (await handleRequest(request("/api/auth-options"), env)).json(),
+  ).toEqual({ google: false, emailSignup: false });
+  expect(
+    await (
+      await handleRequest(request("/api/auth-options"), configured)
+    ).json(),
+  ).toEqual({ google: true, emailSignup: false });
+  expect(
+    (
+      await handleRequest(
+        request("/api/auth/sign-in/social", "POST", { provider: "google" }),
+        env,
+      )
+    ).status,
+  ).toBe(503);
+  expect(
+    (
+      await handleRequest(
+        request("/api/auth/sign-in/social", "POST", { provider: "github" }),
+        configured,
+      )
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await handleRequest(
+        request("/api/auth/sign-in/social", "POST", {
+          provider: "google",
+          callbackURL: "https://evil.test",
+        }),
+        configured,
+      )
+    ).status,
+  ).toBe(400);
+  const start = await handleRequest(
+    request("/api/auth/sign-in/social", "POST", { provider: "google" }),
+    configured,
+  );
+  expect(start.status).toBe(200);
+  const url = new URL(((await start.json()) as { url: string }).url);
+  expect(url.origin).toBe("https://accounts.google.com");
+  expect(url.searchParams.get("redirect_uri")).toBe(
+    "http://localhost:8788/api/auth/callback/google",
+  );
+  expect(url.searchParams.get("scope")!.split(" ").sort()).toEqual([
+    "email",
+    "openid",
+    "profile",
+  ]);
+  expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+  expect(url.searchParams.get("prompt")).toBe("select_account");
+  const wrong = await handleRequest(
+    request("/api/auth/callback/google?code=invalid&state=wrong"),
+    configured,
+  );
+  expect(wrong.status).toBe(302);
+  expect(
+    await env.DB.prepare("SELECT COUNT(*) AS n FROM session").first("n"),
+  ).toBe(0);
+});
+it("Google creates private accounts without email OTP, preserves an existing verified account and encrypts OAuth tokens", async () => {
+  const configured = {
+    ...env,
+    GOOGLE_CLIENT_ID: "synthetic-client.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET: "synthetic-secret",
+  };
+  const keys = await generateKeyPair("RS256");
+  const jwk = {
+    ...(await exportJWK(keys.publicKey)),
+    kid: "test-google",
+    alg: "RS256",
+    use: "sig",
+  };
+  let profile = {
+    sub: "new-google",
+    email: "new-user@example.test",
+    email_verified: true,
+    name: "New User",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url === "https://oauth2.googleapis.com/token") {
+        const id_token = await new SignJWT(profile)
+          .setProtectedHeader({ alg: "RS256", kid: "test-google" })
+          .setIssuer("https://accounts.google.com")
+          .setAudience(configured.GOOGLE_CLIENT_ID)
+          .setIssuedAt()
+          .setExpirationTime("5m")
+          .sign(keys.privateKey);
+        return Response.json({
+          access_token: "synthetic-google-access",
+          token_type: "Bearer",
+          expires_in: 3600,
+          id_token,
+          scope: "openid email profile",
+        });
+      }
+      if (url === "https://www.googleapis.com/oauth2/v3/certs")
+        return Response.json({ keys: [jwk] });
+      throw new Error("Unexpected provider request: " + url);
+    }),
+  );
+  async function signIn() {
+    const start = await handleRequest(
+      request("/api/auth/sign-in/social", "POST", { provider: "google" }),
+      configured,
+    );
+    const url = new URL(((await start.json()) as { url: string }).url);
+    const cookie = start.headers
+      .getSetCookie()
+      .map((s) => s.split(";")[0])
+      .join("; ");
+    const callback = await handleRequest(
+      request(
+        `/api/auth/callback/google?code=synthetic&state=${encodeURIComponent(url.searchParams.get("state")!)}`,
+        "GET",
+        undefined,
+        cookie,
+      ),
+      configured,
+    );
+    const sessionCookie = callback.headers
+      .getSetCookie()
+      .map((s) => s.split(";")[0])
+      .join("; ");
+    return { callback, sessionCookie };
+  }
+  const first = await signIn();
+  expect(first.callback.status).toBe(302);
+  expect(first.callback.headers.get("location")).toBe(env.APP_URL);
+  const fresh = await env.DB.prepare(
+    "SELECT id,emailVerified FROM user WHERE email=?",
+  )
+    .bind(profile.email)
+    .first<{ id: string; emailVerified: number }>();
+  expect(fresh?.emailVerified).toBe(1);
+  const oauth = await env.DB.prepare(
+    "SELECT accessToken FROM account WHERE userId=?",
+  )
+    .bind(fresh!.id)
+    .first<{ accessToken: string }>();
+  expect(oauth?.accessToken).toBeTruthy();
+  expect(oauth?.accessToken).not.toBe("synthetic-google-access");
+  expect(
+    (
+      await handleRequest(
+        request("/api/records", "GET", undefined, first.sessionCookie),
+        configured,
+      )
+    ).status,
+  ).toBe(200);
+  profile = { ...profile, sub: "existing-google", email: alice.email };
+  await signIn();
+  expect(
+    (
+      await env.DB.prepare("SELECT userId FROM account WHERE accountId=?")
+        .bind(profile.sub)
+        .first<{ userId: string }>()
+    )?.userId,
+  ).toBe(alice.id);
+  await env.DB.prepare("UPDATE user SET emailVerified=0 WHERE id=?")
+    .bind(bob.id)
+    .run();
+  profile = { ...profile, sub: "unverified-local-google", email: bob.email };
+  const blocked = await signIn();
+  expect(blocked.callback.headers.get("location")).toContain("error=");
+  expect(
+    await env.DB.prepare("SELECT userId FROM account WHERE accountId=?")
+      .bind(profile.sub)
+      .first(),
+  ).toBeNull();
+  const deletion = await handleRequest(
+    request(
+      "/api/account",
+      "DELETE",
+      { confirmation: "DELETE MY ACCOUNT" },
+      first.sessionCookie,
+    ),
+    configured,
+  );
+  expect(deletion.status).toBe(200);
+  expect(
+    await env.DB.prepare("SELECT id FROM user WHERE id=?")
+      .bind(fresh!.id)
+      .first(),
+  ).toBeNull();
+});
 it("saves and edits larger workbook plans while retaining request limits", async () => {
   const plan = {
     title: "Synthetic multiweek plan",

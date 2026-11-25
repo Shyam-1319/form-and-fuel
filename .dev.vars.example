@@ -3,5 +3,8 @@ BETTER_AUTH_SECRET=replace-with-at-least-32-random-characters
 INTEGRATION_ENCRYPTION_KEY=replace-with-base64-encoded-32-random-bytes
 RESEND_API_KEY=replace-with-your-email-provider-key
 GROQ_API_KEY=replace-with-your-groq-key
+# Optional Google sign-in; configure a Web OAuth client with /api/auth/callback/google.
+GOOGLE_CLIENT_ID=replace-with-your-web-client-id
+GOOGLE_CLIENT_SECRET=replace-with-your-web-client-secret
 # AI is opt-in. Enable only after reviewing Groq terms and account limits.
 AI_ENABLED=false
